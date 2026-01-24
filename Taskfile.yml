@@ -1,0 +1,39 @@
+version: "3"
+
+tasks:
+  run:
+    desc: Run the API locally
+    cmds:
+      - go run ./cmd/web
+
+  build:
+    desc: Build for local OS
+    cmds:
+      - go build -o bin/web ./cmd/web
+
+  build:amazon-linux:
+    desc: Static build for Amazon Linux (linux/amd64)
+    cmds:
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/web-linux-amd64 ./cmd/web
+
+  jet:generate:
+    desc: Generate Jet models
+    cmds:
+      - jet -source=mysql -dsn="root:root@tcp(127.0.0.1:3306)/db" -path=./internal/entity -ignore-tables=goose_db_version
+
+  mysql:docker:
+    desc: Start a local MySQL container
+    cmds:
+      - docker run --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=db -d mysql:8
+      # - podman run --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=db -d docker.io/library/mysql:8
+
+  tools:install:
+    desc: Install goose and jet CLI tools
+    cmds:
+      - go install github.com/pressly/goose/v3/cmd/goose@latest
+      - go install github.com/go-jet/jet/v2/cmd/jet@latest
+
+  goose:up:
+    desc: Run Goose migrations
+    cmds:
+      - GOOSE_DRIVER=mysql GOOSE_DBSTRING="root:root@tcp(127.0.0.1:3306)/db" goose -dir ./db/migrations up
