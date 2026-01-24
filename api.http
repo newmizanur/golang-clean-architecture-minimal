@@ -1,0 +1,147 @@
+@baseUrl = http://localhost:3000
+@token = {{login.response.body.data.token}}
+@contactId = {{createContact.response.body.data.id}}
+@addressId = {{createAddress.response.body.data.id}}
+@itemId = {{createItem.response.body.data.id}}
+
+### Register
+# @name register
+POST {{baseUrl}}/api/users HTTP/1.1
+content-type: application/json
+
+{
+  "name": "User One",
+  "password": "secret123"
+}
+
+### Login
+# @name login
+POST {{baseUrl}}/api/users/login HTTP/1.1
+content-type: application/json
+
+{
+  "id": "109f4a42-fb5f-4850-8886-06220b1756fb",
+  "password": "secret123"
+}
+
+### Current user
+GET {{baseUrl}}/api/users/current HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Logout
+DELETE {{baseUrl}}/api/users HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Create contact
+# @name createContact
+POST {{baseUrl}}/api/contacts HTTP/1.1
+Authorization: Bearer {{token}}
+content-type: application/json
+
+{
+  "firstName": "Jane",
+  "lastName": "Doe",
+  "email": "jane@example.com",
+  "phone": "+123456789"
+}
+
+### List contacts
+GET {{baseUrl}}/api/contacts?page=1&size=10 HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Get contact
+GET {{baseUrl}}/api/contacts/{{contactId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Update contact
+PUT {{baseUrl}}/api/contacts/{{contactId}} HTTP/1.1
+Authorization: Bearer {{token}}
+content-type: application/json
+
+{
+  "firstName": "Jane",
+  "lastName": "Doe",
+  "email": "jane@newmail.com",
+  "phone": "+123456789"
+}
+
+### Delete contact
+DELETE {{baseUrl}}/api/contacts/{{contactId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Create address
+# @name createAddress
+POST {{baseUrl}}/api/contacts/{{contactId}}/addresses HTTP/1.1
+Authorization: Bearer {{token}}
+content-type: application/json
+
+{
+  "street": "123 Main St",
+  "city": "Singapore",
+  "province": "Singapore",
+  "postalCode": "12345",
+  "country": "SG"
+}
+
+### List addresses
+GET {{baseUrl}}/api/contacts/{{contactId}}/addresses HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Get address
+GET {{baseUrl}}/api/contacts/{{contactId}}/addresses/{{addressId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Update address
+PUT {{baseUrl}}/api/contacts/{{contactId}}/addresses/{{addressId}} HTTP/1.1
+Authorization: Bearer {{token}}
+content-type: application/json
+
+{
+  "street": "456 New St",
+  "city": "Singapore",
+  "province": "Singapore",
+  "postalCode": "54321",
+  "country": "SG"
+}
+
+### Delete address
+DELETE {{baseUrl}}/api/contacts/{{contactId}}/addresses/{{addressId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+
+### Create item
+# @name createItem
+POST {{baseUrl}}/api/items HTTP/1.1
+Authorization: Bearer {{token}}
+content-type: application/json
+
+{
+  "name": "Keyboard",
+  "sku": "pc_keyboard2",
+  "currency": "usd",
+  "stock": 10
+}
+
+### List items
+GET {{baseUrl}}/api/items?page=1&size=10&sort=stock HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Get item
+GET {{baseUrl}}/api/items/{{itemId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Update item
+PUT {{baseUrl}}/api/items/{{itemId}} HTTP/1.1
+Authorization: Bearer {{token}}
+content-type: application/json
+
+{
+  "name": "Mechanical Keyboard",
+  "sku": "pc_keyboard2",
+  "currency": "usd",
+  "stock": 12
+}
+
+### Delete item
+DELETE {{baseUrl}}/api/items/{{itemId}} HTTP/1.1
+Authorization: Bearer {{token}}

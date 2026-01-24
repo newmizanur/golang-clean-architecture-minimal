@@ -1,0 +1,15 @@
+[Unit]
+Description=App
+After=network.target
+
+[Service]
+Type=simple
+# Copy this file to /etc/systemd/system/api.service
+# Ensure binary is executable: sudo chmod +x /opt/api/bin/web-linux-amd64
+WorkingDirectory=/opt/api
+ExecStart=/opt/api/bin/web-linux-amd64
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

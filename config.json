@@ -1,0 +1,27 @@
+{
+  "app": {
+    "name": "golang-clean-architecture"
+  },
+  "web": {
+    "port": 3000
+  },
+  "log": {
+    "level": 6
+  },
+  "database": {
+    "username": "postgres",
+    "password": "postgres",
+    "host": "127.0.0.1",
+    "port": 5432,
+    "name": "db",
+    "pool": {
+      "idle": 10,
+      "max": 100,
+      "lifetime": 300
+    }
+  },
+  "jwt": {
+    "secret": "change-me",
+    "ttl_minutes": 1440
+  }
+}

@@ -1,0 +1,45 @@
+version: "3"
+
+tasks:
+  run:
+    desc: Run the API locally
+    cmds:
+      - go run ./cmd/web
+
+  build:
+    desc: Build for local OS
+    cmds:
+      - go build -o bin/web ./cmd/web
+
+  build:amazon-linux:
+    desc: Static build for Amazon Linux (linux/amd64)
+    cmds:
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/web-linux-amd64 ./cmd/web
+
+  postgres:docker:
+    desc: Start a local PostgreSQL container
+    cmds:
+      - docker run --name postgres -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=db -d postgres:16
+
+  tools:install:
+    desc: Install goose CLI tool
+    cmds:
+      - go install github.com/pressly/goose/v3/cmd/goose@latest
+
+  goose:up:
+    desc: Run Goose migrations
+    cmds:
+      - GOOSE_DRIVER=postgres GOOSE_DBSTRING="postgres://postgres:postgres@127.0.0.1:5432/db?sslmode=disable" goose -dir ./db/migrations up
+
+  goose:down:
+    desc: Run Goose migrations down
+    cmds:
+      - GOOSE_DRIVER=postgres GOOSE_DBSTRING="postgres://postgres:postgres@127.0.0.1:5432/db?sslmode=disable" goose -dir ./db/migrations down
+
+  goose:create:
+    desc: Create a migration (NAME required)
+    cmds:
+      - goose -dir ./db/migrations create "{{.CLI_ARGS}}" sql
+    preconditions:
+      - sh: test -n "{{.CLI_ARGS}}"
+        msg: "NAME is required. Example: task goose:create -- create_table_items"
