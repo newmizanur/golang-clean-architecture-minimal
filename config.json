@@ -23,5 +23,11 @@
   "jwt": {
     "secret": "change-me",
     "ttl_minutes": 1440
+  },
+  "aws": {
+    "region": "ap-southeast-1",
+    "sqs": {
+      "queue_url": ""
+    }
   }
 }
