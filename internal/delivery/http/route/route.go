@@ -12,6 +12,7 @@ type RouteConfig struct {
 	ContactController *http.ContactController
 	AddressController *http.AddressController
 	AuthMiddleware    echo.MiddlewareFunc
+	ItemController    *http.ItemController
 }
 
 func (c *RouteConfig) Setup() {
@@ -41,4 +42,7 @@ func (c *RouteConfig) SetupAuthRoute() {
 	auth.PUT("/api/contacts/:contactId/addresses/:addressId", c.AddressController.Update)
 	auth.GET("/api/contacts/:contactId/addresses/:addressId", c.AddressController.Get)
 	auth.DELETE("/api/contacts/:contactId/addresses/:addressId", c.AddressController.Delete)
+
+	auth.GET("/api/items", c.ItemController.List)
+	auth.POST("/api/items", c.ItemController.Create)
 }

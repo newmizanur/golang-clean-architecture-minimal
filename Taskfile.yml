@@ -37,3 +37,17 @@ tasks:
     desc: Run Goose migrations
     cmds:
       - GOOSE_DRIVER=mysql GOOSE_DBSTRING="root:root@tcp(127.0.0.1:3306)/db" goose -dir ./db/migrations up
+  
+  goose:down:
+    desc: Run Goose migrations down
+    cmds:
+      - GOOSE_DRIVER=mysql GOOSE_DBSTRING="root:root@tcp(127.0.0.1:3306)/db" goose -dir ./db/migrations down
+
+
+  goose:create:
+    desc: Create a migration (NAME required)
+    cmds:
+      - goose -dir ./db/migrations create "{{.CLI_ARGS}}" sql
+    preconditions:
+      - sh: test -n "{{.CLI_ARGS}}"
+        msg: "NAME is required. Example: task goose:create -- create_table_items"

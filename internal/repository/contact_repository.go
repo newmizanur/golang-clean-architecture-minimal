@@ -73,9 +73,7 @@ func (r *ContactRepository) Search(ctx context.Context, tx *sql.Tx, request *mod
 	countStmt := mysql.SELECT(mysql.COUNT(t.Contacts.ID).AS("total")).
 		FROM(t.Contacts).
 		WHERE(filter)
-	if tx != nil {
-		countStmt = countStmt.FOR(mysql.UPDATE())
-	}
+
 	if err := countStmt.QueryContext(ctx, db, &result); err != nil {
 		return nil, 0, err
 	}

@@ -28,6 +28,7 @@ func Bootstrap(config *BootstrapConfig) {
 	userRepository := repository.NewUserRepository(config.DB, config.Log)
 	contactRepository := repository.NewContactRepository(config.DB, config.Log)
 	addressRepository := repository.NewAddressRepository(config.DB, config.Log)
+	itemRepository := repository.NewItemRepository(config.DB, config.Log)
 
 	jwtSecret := config.Config.GetString("jwt.secret")
 	jwtTTLMinutes := config.Config.GetInt("jwt.ttl_minutes")
@@ -43,11 +44,13 @@ func Bootstrap(config *BootstrapConfig) {
 	)
 	contactUseCase := usecase.NewContactUseCase(config.DB, config.Log, config.Validate, contactRepository)
 	addressUseCase := usecase.NewAddressUseCase(config.DB, config.Log, config.Validate, contactRepository, addressRepository)
+	itemUseCase := usecase.NewItemUseCase(config.DB, config.Log, itemRepository)
 
 	// setup controller
 	userController := http.NewUserController(userUseCase, config.Log)
 	contactController := http.NewContactController(contactUseCase, config.Log)
 	addressController := http.NewAddressController(addressUseCase, config.Log)
+	itemController := http.NewItemController(itemUseCase, config.Log)
 
 	// setup middleware
 	authMiddleware := middleware.NewAuth(jwtSecret)
@@ -58,6 +61,7 @@ func Bootstrap(config *BootstrapConfig) {
 		ContactController: contactController,
 		AddressController: addressController,
 		AuthMiddleware:    authMiddleware,
+		ItemController:    itemController,
 	}
 	routeConfig.Setup()
 }

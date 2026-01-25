@@ -106,3 +106,21 @@ content-type: application/json
 ### Delete address
 DELETE {{baseUrl}}/api/contacts/{{contactId}}/addresses/{{addressId}} HTTP/1.1
 Authorization: Bearer {{token}}
+
+
+### Create item
+# @name createItem
+POST {{baseUrl}}/api/items HTTP/1.1
+Authorization: Bearer {{token}}
+content-type: application/json
+
+{
+  "name": "Keyboard",
+  "sku": "pc_keyboard2",
+  "currency": "usd",
+  "stock": 10
+}
+
+### List contacts
+GET {{baseUrl}}/api/items?page=1&size=10&sort=stock HTTP/1.1
+Authorization: Bearer {{token}}

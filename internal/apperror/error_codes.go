@@ -76,6 +76,16 @@ var AuthErrors = struct {
 	MissingToken: NewAppError(5002, http.StatusUnauthorized, "missing token"),
 }
 
+var ItemErrors = struct {
+	InvalidRequest,
+	FailedToCreateTransaction,
+	FailedToCreateItem *AppError
+}{
+	InvalidRequest:            NewAppError(6001, http.StatusBadRequest, "invalid item request"),
+	FailedToCreateTransaction: NewAppError(6002, http.StatusBadRequest, "faild to create transaction to create item"),
+	FailedToCreateItem:        NewAppError(6003, http.StatusBadRequest, "faild to create item"),
+}
+
 var UnknownErrors = struct {
 	SQLNoRowsError,
 	UnknownValidationError *AppError
