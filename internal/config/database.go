@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	t "golang-clean-architecture/internal/entity/db/table"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -19,6 +21,8 @@ func NewDatabase(viper *viper.Viper, log *logrus.Logger) *sql.DB {
 	idleConnection := viper.GetInt("database.pool.idle")
 	maxConnection := viper.GetInt("database.pool.max")
 	maxLifeTimeConnection := viper.GetInt("database.pool.lifetime")
+
+	t.UseSchema(database) //for jet
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local", username, password, host, port, database)
 

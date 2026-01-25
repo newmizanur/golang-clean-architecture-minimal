@@ -21,14 +21,14 @@ func (c *RouteConfig) Setup() {
 
 func (c *RouteConfig) SetupGuestRoute() {
 	c.App.POST("/api/users", c.UserController.Register)
-	c.App.POST("/api/users/_login", c.UserController.Login)
+	c.App.POST("/api/users/login", c.UserController.Login)
 }
 
 func (c *RouteConfig) SetupAuthRoute() {
 	auth := c.App.Group("", c.AuthMiddleware)
 	auth.DELETE("/api/users", c.UserController.Logout)
-	auth.PATCH("/api/users/_current", c.UserController.Update)
-	auth.GET("/api/users/_current", c.UserController.Current)
+	auth.PATCH("/api/users/current", c.UserController.Update)
+	auth.GET("/api/users/current", c.UserController.Current)
 
 	auth.GET("/api/contacts", c.ContactController.List)
 	auth.POST("/api/contacts", c.ContactController.Create)

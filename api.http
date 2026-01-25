@@ -15,16 +15,16 @@ content-type: application/json
 
 ### Login
 # @name login
-POST {{baseUrl}}/api/users/_login HTTP/1.1
+POST {{baseUrl}}/api/users/login HTTP/1.1
 content-type: application/json
 
 {
-  "id": "f4a0a27d-ce2b-4b17-8f4a-6744e83ed650",
+  "id": "02ebef3e-97cb-43ee-b58a-4e3a0504ebde",
   "password": "secret123"
 }
 
 ### Current user
-GET {{baseUrl}}/api/users/_current HTTP/1.1
+GET {{baseUrl}}/api/users/current HTTP/1.1
 Authorization: Bearer {{token}}
 
 ### Logout
