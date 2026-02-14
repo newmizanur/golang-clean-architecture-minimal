@@ -79,3 +79,104 @@ func (c *ItemUseCase) Search(ctx context.Context, request *dto.SearchItemRequest
 
 	return response, total, nil
 }
+
+func (c *ItemUseCase) Get(ctx context.Context, request *dto.GetItemRequest) (*dto.CreateItemResponse, error) {
+	tx, err := c.DB.BeginTx(ctx, nil)
+	if err != nil {
+		c.Log.WithError(err).Error("error starting transaction on get item")
+		return nil, apperror.ItemErrors.FailedToGet
+	}
+	defer tx.Rollback()
+
+	item, err := c.ItemRepository.Get(ctx, tx, request.ID)
+	if err != nil {
+		c.Log.WithError(err).Error("error getting item")
+		return nil, apperror.ItemErrors.FailedToGet
+	}
+	if item == nil {
+		return nil, apperror.ItemErrors.NotFound
+	}
+
+	if err := tx.Commit(); err != nil {
+		c.Log.WithError(err).Error("error commit transaction on get item")
+		return nil, apperror.ItemErrors.FailedToGet
+	}
+
+	return converter.ItemToResponse(item), nil
+}
+
+func (c *ItemUseCase) Update(ctx context.Context, request *dto.UpdateItemRequest) (*dto.CreateItemResponse, error) {
+	tx, err := c.DB.BeginTx(ctx, nil)
+	if err != nil {
+		c.Log.WithError(err).Error("error starting transaction on update item")
+		return nil, apperror.ItemErrors.FailedToUpdate
+	}
+	defer tx.Rollback()
+
+	item, err := c.ItemRepository.Get(ctx, tx, request.ID)
+	if err != nil {
+		c.Log.WithError(err).Error("error getting item")
+		return nil, apperror.ItemErrors.FailedToUpdate
+	}
+	if item == nil {
+		return nil, apperror.ItemErrors.NotFound
+	}
+
+	if request.Name != "" {
+		item.Name = request.Name
+	}
+	if request.SKU != "" {
+		item.Sku = request.SKU
+	}
+	if request.Currency != "" {
+		item.Currency = request.Currency
+	}
+	if request.Stock > 0 {
+		item.Stock = request.Stock
+	}
+
+	now := time.Now()
+	item.UpdatedAt = &now
+
+	if err := c.ItemRepository.Update(ctx, tx, item); err != nil {
+		c.Log.WithError(err).Error("error updating item")
+		return nil, apperror.ItemErrors.FailedToUpdate
+	}
+
+	if err := tx.Commit(); err != nil {
+		c.Log.WithError(err).Error("error commit transaction on update item")
+		return nil, apperror.ItemErrors.FailedToUpdate
+	}
+
+	return converter.ItemToResponse(item), nil
+}
+
+func (c *ItemUseCase) Delete(ctx context.Context, request *dto.DeleteItemRequest) error {
+	tx, err := c.DB.BeginTx(ctx, nil)
+	if err != nil {
+		c.Log.WithError(err).Error("error starting transaction on delete item")
+		return apperror.ItemErrors.FailedToDelete
+	}
+	defer tx.Rollback()
+
+	item, err := c.ItemRepository.Get(ctx, tx, request.ID)
+	if err != nil {
+		c.Log.WithError(err).Error("error getting item")
+		return apperror.ItemErrors.FailedToDelete
+	}
+	if item == nil {
+		return apperror.ItemErrors.NotFound
+	}
+
+	if err := c.ItemRepository.Delete(ctx, tx, request.ID); err != nil {
+		c.Log.WithError(err).Error("error deleting item")
+		return apperror.ItemErrors.FailedToDelete
+	}
+
+	if err := tx.Commit(); err != nil {
+		c.Log.WithError(err).Error("error commit transaction on delete item")
+		return apperror.ItemErrors.FailedToDelete
+	}
+
+	return nil
+}

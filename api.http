@@ -2,6 +2,7 @@
 @token = {{login.response.body.data.token}}
 @contactId = {{createContact.response.body.data.id}}
 @addressId = {{createAddress.response.body.data.id}}
+@itemId = {{createItem.response.body.data.id}}
 
 ### Register
 # @name register
@@ -19,7 +20,7 @@ POST {{baseUrl}}/api/users/login HTTP/1.1
 content-type: application/json
 
 {
-  "id": "02ebef3e-97cb-43ee-b58a-4e3a0504ebde",
+  "id": "109f4a42-fb5f-4850-8886-06220b1756fb",
   "password": "secret123"
 }
 
@@ -121,6 +122,26 @@ content-type: application/json
   "stock": 10
 }
 
-### List contacts
+### List items
 GET {{baseUrl}}/api/items?page=1&size=10&sort=stock HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Get item
+GET {{baseUrl}}/api/items/{{itemId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Update item
+PUT {{baseUrl}}/api/items/{{itemId}} HTTP/1.1
+Authorization: Bearer {{token}}
+content-type: application/json
+
+{
+  "name": "Mechanical Keyboard",
+  "sku": "pc_keyboard2",
+  "currency": "usd",
+  "stock": 12
+}
+
+### Delete item
+DELETE {{baseUrl}}/api/items/{{itemId}} HTTP/1.1
 Authorization: Bearer {{token}}

@@ -25,3 +25,19 @@ type SearchItemRequest struct {
 	Page int    `json:"page" validate:"min=1"`
 	Size int    `json:"size" validate:"min=1,max=100"`
 }
+
+type GetItemRequest struct {
+	ID int64 `json:"-" validate:"required,min=1"`
+}
+
+type UpdateItemRequest struct {
+	ID       int64  `json:"-" validate:"required,min=1"`
+	Name     string `json:"name" validate:"max=255"`
+	SKU      string `json:"sku" validate:"max=100"`
+	Currency string `json:"currency" validate:"max=10"`
+	Stock    int32  `json:"stock" validate:"min=1"`
+}
+
+type DeleteItemRequest struct {
+	ID int64 `json:"-" validate:"required,min=1"`
+}

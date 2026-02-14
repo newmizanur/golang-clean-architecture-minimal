@@ -45,4 +45,7 @@ func (c *RouteConfig) SetupAuthRoute() {
 
 	auth.GET("/api/items", c.ItemController.List)
 	auth.POST("/api/items", c.ItemController.Create)
+	auth.GET("/api/items/:itemId", c.ItemController.Get)
+	auth.PUT("/api/items/:itemId", c.ItemController.Update)
+	auth.DELETE("/api/items/:itemId", c.ItemController.Delete)
 }

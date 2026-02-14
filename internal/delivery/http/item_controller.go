@@ -7,6 +7,7 @@ import (
 	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/usecase"
 	"math"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
@@ -67,4 +68,67 @@ func (c *ItemController) List(ctx echo.Context) error {
 	}
 
 	return httpresponse.SuccessBuilder(response).WithPaging(paging).Send(ctx)
+}
+
+func (c *ItemController) Get(ctx echo.Context) error {
+	_ = middleware.GetUser(ctx)
+
+	itemID, err := itemIDParam(ctx)
+	if err != nil {
+		return httpresponse.NewErrorBuilder(apperror.ItemErrors.InvalidRequest).Send(ctx)
+	}
+
+	request := &dto.GetItemRequest{ID: itemID}
+	response, err := c.ItemUseCase.Get(ctx.Request().Context(), request)
+	if err != nil {
+		c.Log.WithError(err).Error("error on get item")
+		return httpresponse.NewErrorBuilder(err).Send(ctx)
+	}
+
+	return httpresponse.SuccessBuilder(response).Send(ctx)
+}
+
+func (c *ItemController) Update(ctx echo.Context) error {
+	_ = middleware.GetUser(ctx)
+
+	itemID, err := itemIDParam(ctx)
+	if err != nil {
+		return httpresponse.NewErrorBuilder(apperror.ItemErrors.InvalidRequest).Send(ctx)
+	}
+
+	request := new(dto.UpdateItemRequest)
+	if err := ctx.Bind(&request); err != nil {
+		c.Log.WithError(err).Error("error parsing request body")
+		return httpresponse.NewErrorBuilder(apperror.ItemErrors.InvalidRequest).Send(ctx)
+	}
+	request.ID = itemID
+
+	response, err := c.ItemUseCase.Update(ctx.Request().Context(), request)
+	if err != nil {
+		c.Log.WithError(err).Error("error on update item")
+		return httpresponse.NewErrorBuilder(err).Send(ctx)
+	}
+
+	return httpresponse.SuccessBuilder(response).Send(ctx)
+}
+
+func (c *ItemController) Delete(ctx echo.Context) error {
+	_ = middleware.GetUser(ctx)
+
+	itemID, err := itemIDParam(ctx)
+	if err != nil {
+		return httpresponse.NewErrorBuilder(apperror.ItemErrors.InvalidRequest).Send(ctx)
+	}
+
+	request := &dto.DeleteItemRequest{ID: itemID}
+	if err := c.ItemUseCase.Delete(ctx.Request().Context(), request); err != nil {
+		c.Log.WithError(err).Error("error on delete item")
+		return httpresponse.NewErrorBuilder(err).Send(ctx)
+	}
+
+	return httpresponse.SuccessBuilder(true).Send(ctx)
+}
+
+func itemIDParam(ctx echo.Context) (int64, error) {
+	return strconv.ParseInt(ctx.Param("itemId"), 10, 64)
 }
