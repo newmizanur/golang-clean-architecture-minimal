@@ -1,12 +1,12 @@
 package converter
 
 import (
-	dbmodel "golang-clean-architecture/internal/entity/db/model"
-	"golang-clean-architecture/internal/model"
+	"golang-clean-architecture/internal/dto"
+	dbmodel "golang-clean-architecture/internal/persistence/model"
 )
 
-func ContactToResponse(contact *dbmodel.Contacts) *model.ContactResponse {
-	return &model.ContactResponse{
+func ContactToResponse(contact *dbmodel.Contacts) *dto.ContactResponse {
+	return &dto.ContactResponse{
 		ID:        contact.ID,
 		FirstName: contact.FirstName,
 		LastName:  stringValueOrEmpty(contact.LastName),

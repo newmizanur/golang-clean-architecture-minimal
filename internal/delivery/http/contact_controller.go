@@ -4,7 +4,7 @@ import (
 	"golang-clean-architecture/internal/apperror"
 	"golang-clean-architecture/internal/delivery/http/middleware"
 	httpresponse "golang-clean-architecture/internal/delivery/http/response"
-	"golang-clean-architecture/internal/model"
+	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/usecase"
 	"math"
 	"strconv"
@@ -28,7 +28,7 @@ func NewContactController(useCase *usecase.ContactUseCase, log *logrus.Logger) *
 func (c *ContactController) Create(ctx echo.Context) error {
 	auth := middleware.GetUser(ctx)
 
-	request := new(model.CreateContactRequest)
+	request := new(dto.CreateContactRequest)
 	if err := ctx.Bind(request); err != nil {
 		c.Log.WithError(err).Error("error parsing request body")
 		return httpresponse.NewErrorBuilder(apperror.ContactErrors.InvalidRequest).Send(ctx)
@@ -47,7 +47,7 @@ func (c *ContactController) Create(ctx echo.Context) error {
 func (c *ContactController) List(ctx echo.Context) error {
 	auth := middleware.GetUser(ctx)
 
-	request := &model.SearchContactRequest{
+	request := &dto.SearchContactRequest{
 		UserId: auth.ID,
 		Name:   ctx.QueryParam("name"),
 		Email:  ctx.QueryParam("email"),
@@ -62,7 +62,7 @@ func (c *ContactController) List(ctx echo.Context) error {
 		return httpresponse.NewErrorBuilder(err).Send(ctx)
 	}
 
-	paging := &model.PageMetadata{
+	paging := &dto.PageMetadata{
 		Page:      request.Page,
 		Size:      request.Size,
 		TotalItem: total,
@@ -75,7 +75,7 @@ func (c *ContactController) List(ctx echo.Context) error {
 func (c *ContactController) Get(ctx echo.Context) error {
 	auth := middleware.GetUser(ctx)
 
-	request := &model.GetContactRequest{
+	request := &dto.GetContactRequest{
 		UserId: auth.ID,
 		ID:     ctx.Param("contactId"),
 	}
@@ -92,7 +92,7 @@ func (c *ContactController) Get(ctx echo.Context) error {
 func (c *ContactController) Update(ctx echo.Context) error {
 	auth := middleware.GetUser(ctx)
 
-	request := new(model.UpdateContactRequest)
+	request := new(dto.UpdateContactRequest)
 	if err := ctx.Bind(request); err != nil {
 		c.Log.WithError(err).Error("error parsing request body")
 		return httpresponse.NewErrorBuilder(apperror.ContactErrors.InvalidRequest).Send(ctx)
@@ -114,7 +114,7 @@ func (c *ContactController) Delete(ctx echo.Context) error {
 	auth := middleware.GetUser(ctx)
 	contactId := ctx.Param("contactId")
 
-	request := &model.DeleteContactRequest{
+	request := &dto.DeleteContactRequest{
 		UserId: auth.ID,
 		ID:     contactId,
 	}

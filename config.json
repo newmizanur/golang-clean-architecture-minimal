@@ -9,10 +9,10 @@
     "level": 6
   },
   "database": {
-    "username": "root",
-    "password": "root",
+    "username": "postgres",
+    "password": "postgres",
     "host": "127.0.0.1",
-    "port": 3306,
+    "port": 5432,
     "name": "db",
     "pool": {
       "idle": 10,

@@ -2,44 +2,42 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"golang-clean-architecture/internal/apperror"
-	dbmodel "golang-clean-architecture/internal/entity/db/model"
-	t "golang-clean-architecture/internal/entity/db/table"
-	"golang-clean-architecture/internal/model"
+	"golang-clean-architecture/internal/dto"
+	dbmodel "golang-clean-architecture/internal/persistence/model"
 
-	"github.com/go-jet/jet/v2/mysql"
-	"github.com/go-jet/jet/v2/qrm"
 	"github.com/sirupsen/logrus"
+	"github.com/uptrace/bun"
 )
 
 type ContactRepository struct {
-	DB  *sql.DB
+	DB  *bun.DB
 	Log *logrus.Logger
 }
 
-func NewContactRepository(db *sql.DB, log *logrus.Logger) *ContactRepository {
+func NewContactRepository(db *bun.DB, log *logrus.Logger) *ContactRepository {
 	return &ContactRepository{
 		DB:  db,
 		Log: log,
 	}
 }
 
-func (r *ContactRepository) FindByIdAndUserId(ctx context.Context, tx *sql.Tx, id string, userId string) (*dbmodel.Contacts, error) {
-	stmt := mysql.SELECT(t.Contacts.AllColumns).
-		FROM(t.Contacts).
-		WHERE(
-			t.Contacts.ID.EQ(mysql.String(id)).
-				AND(t.Contacts.UserID.EQ(mysql.String(userId))),
-		).
-		LIMIT(1)
-	db := qrm.Queryable(r.DB)
+func (r *ContactRepository) dbConn(tx bun.IDB) bun.IDB {
 	if tx != nil {
-		db = tx
-		stmt = stmt.FOR(mysql.UPDATE())
+		return tx
 	}
+	return r.DB
+}
+
+func (r *ContactRepository) FindByIdAndUserId(ctx context.Context, tx bun.IDB, id string, userId string) (*dbmodel.Contacts, error) {
 	contact := new(dbmodel.Contacts)
-	if err := stmt.QueryContext(ctx, db, contact); err != nil {
+	err := r.dbConn(tx).NewSelect().
+		Model(contact).
+		Where("id = ?", id).
+		Where("user_id = ?", userId).
+		Limit(1).
+		Scan(ctx)
+	if err != nil {
 		if apperror.IsNoRows(err) {
 			return nil, nil
 		}
@@ -48,114 +46,57 @@ func (r *ContactRepository) FindByIdAndUserId(ctx context.Context, tx *sql.Tx, i
 	return contact, nil
 }
 
-func (r *ContactRepository) Search(ctx context.Context, tx *sql.Tx, request *model.SearchContactRequest) ([]dbmodel.Contacts, int64, error) {
+func (r *ContactRepository) Search(ctx context.Context, tx bun.IDB, request *dto.SearchContactRequest) ([]dbmodel.Contacts, int64, error) {
 	var contacts []dbmodel.Contacts
-	filter := r.filterContact(request)
 	offset := (request.Page - 1) * request.Size
 
-	stmt := mysql.SELECT(t.Contacts.AllColumns).
-		FROM(t.Contacts).
-		WHERE(filter).
-		LIMIT(int64(request.Size)).
-		OFFSET(int64(offset))
-	db := qrm.Queryable(r.DB)
-	if tx != nil {
-		db = tx
-		stmt = stmt.FOR(mysql.UPDATE())
-	}
-	if err := stmt.QueryContext(ctx, db, &contacts); err != nil {
-		return nil, 0, err
-	}
-
-	var result struct {
-		Total int64
-	}
-	countStmt := mysql.SELECT(mysql.COUNT(t.Contacts.ID).AS("total")).
-		FROM(t.Contacts).
-		WHERE(filter)
-
-	if err := countStmt.QueryContext(ctx, db, &result); err != nil {
-		return nil, 0, err
-	}
-
-	return contacts, result.Total, nil
-}
-
-func (r *ContactRepository) filterContact(request *model.SearchContactRequest) mysql.BoolExpression {
-	condition := t.Contacts.UserID.EQ(mysql.String(request.UserId))
+	query := r.dbConn(tx).NewSelect().
+		Model(&contacts).
+		Where("user_id = ?", request.UserId)
 
 	if name := request.Name; name != "" {
 		pattern := "%" + name + "%"
-		nameCondition := t.Contacts.FirstName.LIKE(mysql.String(pattern)).
-			OR(t.Contacts.LastName.LIKE(mysql.String(pattern)))
-		condition = condition.AND(nameCondition)
+		query = query.Where("(first_name ILIKE ? OR last_name ILIKE ?)", pattern, pattern)
 	}
 
 	if phone := request.Phone; phone != "" {
 		pattern := "%" + phone + "%"
-		condition = condition.AND(t.Contacts.Phone.LIKE(mysql.String(pattern)))
+		query = query.Where("phone ILIKE ?", pattern)
 	}
 
 	if email := request.Email; email != "" {
 		pattern := "%" + email + "%"
-		condition = condition.AND(t.Contacts.Email.LIKE(mysql.String(pattern)))
+		query = query.Where("email ILIKE ?", pattern)
 	}
 
-	return condition
+	count, err := query.Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	err = query.Limit(request.Size).Offset(offset).Scan(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return contacts, int64(count), nil
 }
 
-func (r *ContactRepository) Create(ctx context.Context, tx *sql.Tx, contact *dbmodel.Contacts) error {
-	stmt := t.Contacts.INSERT(
-		t.Contacts.ID,
-		t.Contacts.FirstName,
-		t.Contacts.LastName,
-		t.Contacts.Email,
-		t.Contacts.Phone,
-		t.Contacts.UserID,
-		t.Contacts.CreatedAt,
-		t.Contacts.UpdatedAt,
-	).MODEL(contact)
-	db := qrm.Executable(r.DB)
-	if tx != nil {
-		db = tx
-	}
-	_, err := stmt.ExecContext(ctx, db)
+func (r *ContactRepository) Create(ctx context.Context, tx bun.IDB, contact *dbmodel.Contacts) error {
+	_, err := r.dbConn(tx).NewInsert().Model(contact).Exec(ctx)
 	return err
 }
 
-func (r *ContactRepository) Update(ctx context.Context, tx *sql.Tx, contact *dbmodel.Contacts) error {
-	stmt := t.Contacts.UPDATE(
-		t.Contacts.FirstName,
-		t.Contacts.LastName,
-		t.Contacts.Email,
-		t.Contacts.Phone,
-		t.Contacts.UserID,
-		t.Contacts.CreatedAt,
-		t.Contacts.UpdatedAt,
-	).
-		SET(
-			t.Contacts.FirstName.SET(mysql.String(contact.FirstName)),
-			t.Contacts.LastName.SET(stringExprOrNull(contact.LastName)),
-			t.Contacts.Email.SET(stringExprOrNull(contact.Email)),
-			t.Contacts.Phone.SET(stringExprOrNull(contact.Phone)),
-			t.Contacts.UpdatedAt.SET(mysql.Int(contact.UpdatedAt)),
-		).
-		WHERE(t.Contacts.ID.EQ(mysql.String(contact.ID)))
-	db := qrm.Executable(r.DB)
-	if tx != nil {
-		db = tx
-	}
-	_, err := stmt.ExecContext(ctx, db)
+func (r *ContactRepository) Update(ctx context.Context, tx bun.IDB, contact *dbmodel.Contacts) error {
+	_, err := r.dbConn(tx).NewUpdate().
+		Model(contact).
+		Column("first_name", "last_name", "email", "phone", "updated_at").
+		WherePK().
+		Exec(ctx)
 	return err
 }
 
-func (r *ContactRepository) Delete(ctx context.Context, tx *sql.Tx, contact *dbmodel.Contacts) error {
-	stmt := t.Contacts.DELETE().
-		WHERE(t.Contacts.ID.EQ(mysql.String(contact.ID)))
-	db := qrm.Executable(r.DB)
-	if tx != nil {
-		db = tx
-	}
-	_, err := stmt.ExecContext(ctx, db)
+func (r *ContactRepository) Delete(ctx context.Context, tx bun.IDB, contact *dbmodel.Contacts) error {
+	_, err := r.dbConn(tx).NewDelete().Model(contact).WherePK().Exec(ctx)
 	return err
 }

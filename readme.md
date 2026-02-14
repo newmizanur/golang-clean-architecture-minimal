@@ -5,12 +5,12 @@ Install Taskfile CLI:
   go install github.com/go-task/task/v3/cmd/task@latest
 ```
 
-Start MySQL (Docker):
+Start PostgreSQL (Docker):
 ```
-  task mysql:docker
+  task postgres:docker
 ```
 
-Install Goose + Jet tools:
+Install Goose tool:
 ```
   task tools:install
 ```
@@ -18,11 +18,6 @@ Install Goose + Jet tools:
 Run migrations:
 ```
   task goose:up
-```
-
-Generate Jet models:
-```
-  task jet:generate
 ```
 
 Run the API:

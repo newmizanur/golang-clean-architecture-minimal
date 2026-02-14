@@ -1,13 +1,11 @@
 -- +goose Up
-create table users
-(
-    id         char(36)     not null,
-    name       varchar(100) not null,
-    password   varchar(100) not null,
-    created_at bigint       not null,
-    updated_at bigint       not null,
-    primary key (id)
-) engine = InnoDB;
+CREATE TABLE users (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    password VARCHAR(100) NOT NULL,
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+);
 
 -- +goose Down
-drop table users;
+DROP TABLE users;

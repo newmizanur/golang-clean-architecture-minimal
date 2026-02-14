@@ -2,28 +2,28 @@ package usecase
 
 import (
 	"context"
-	"database/sql"
 	"golang-clean-architecture/internal/apperror"
-	dbmodel "golang-clean-architecture/internal/entity/db/model"
-	"golang-clean-architecture/internal/model"
-	"golang-clean-architecture/internal/model/converter"
+	"golang-clean-architecture/internal/dto"
+	"golang-clean-architecture/internal/dto/converter"
+	dbmodel "golang-clean-architecture/internal/persistence/model"
 	"golang-clean-architecture/internal/repository"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/uptrace/bun"
 )
 
 type AddressUseCase struct {
-	DB                *sql.DB
+	DB                *bun.DB
 	Log               *logrus.Logger
 	Validate          *validator.Validate
 	AddressRepository *repository.AddressRepository
 	ContactRepository *repository.ContactRepository
 }
 
-func NewAddressUseCase(db *sql.DB, logger *logrus.Logger, validate *validator.Validate,
+func NewAddressUseCase(db *bun.DB, logger *logrus.Logger, validate *validator.Validate,
 	contactRepository *repository.ContactRepository, addressRepository *repository.AddressRepository) *AddressUseCase {
 	return &AddressUseCase{
 		DB:                db,
@@ -34,7 +34,7 @@ func NewAddressUseCase(db *sql.DB, logger *logrus.Logger, validate *validator.Va
 	}
 }
 
-func (c *AddressUseCase) Create(ctx context.Context, request *model.CreateAddressRequest) (*model.AddressResponse, error) {
+func (c *AddressUseCase) Create(ctx context.Context, request *dto.CreateAddressRequest) (*dto.AddressResponse, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to start transaction")
@@ -83,7 +83,7 @@ func (c *AddressUseCase) Create(ctx context.Context, request *model.CreateAddres
 	return converter.AddressToResponse(address), nil
 }
 
-func (c *AddressUseCase) Update(ctx context.Context, request *model.UpdateAddressRequest) (*model.AddressResponse, error) {
+func (c *AddressUseCase) Update(ctx context.Context, request *dto.UpdateAddressRequest) (*dto.AddressResponse, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to start transaction")
@@ -136,7 +136,7 @@ func (c *AddressUseCase) Update(ctx context.Context, request *model.UpdateAddres
 	return converter.AddressToResponse(address), nil
 }
 
-func (c *AddressUseCase) Get(ctx context.Context, request *model.GetAddressRequest) (*model.AddressResponse, error) {
+func (c *AddressUseCase) Get(ctx context.Context, request *dto.GetAddressRequest) (*dto.AddressResponse, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to start transaction")
@@ -172,7 +172,7 @@ func (c *AddressUseCase) Get(ctx context.Context, request *model.GetAddressReque
 	return converter.AddressToResponse(address), nil
 }
 
-func (c *AddressUseCase) Delete(ctx context.Context, request *model.DeleteAddressRequest) error {
+func (c *AddressUseCase) Delete(ctx context.Context, request *dto.DeleteAddressRequest) error {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to start transaction")
@@ -213,7 +213,7 @@ func (c *AddressUseCase) Delete(ctx context.Context, request *model.DeleteAddres
 	return nil
 }
 
-func (c *AddressUseCase) List(ctx context.Context, request *model.ListAddressRequest) ([]model.AddressResponse, error) {
+func (c *AddressUseCase) List(ctx context.Context, request *dto.ListAddressRequest) ([]dto.AddressResponse, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to start transaction")
@@ -242,7 +242,7 @@ func (c *AddressUseCase) List(ctx context.Context, request *model.ListAddressReq
 		return nil, apperror.AddressErrors.FailedToList
 	}
 
-	responses := make([]model.AddressResponse, len(addresses))
+	responses := make([]dto.AddressResponse, len(addresses))
 	for i, address := range addresses {
 		responses[i] = *converter.AddressToResponse(&address)
 	}

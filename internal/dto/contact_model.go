@@ -1,4 +1,4 @@
-package model
+package dto
 
 type ContactResponse struct {
 	ID        string            `json:"id"`

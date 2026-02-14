@@ -1,17 +1,15 @@
 -- +goose Up
-create table contacts
-(
-    id         char(36)     not null,
-    first_name varchar(100) not null,
-    last_name  varchar(100) null,
-    email      varchar(100) null,
-    phone      varchar(100) null,
-    user_id    char(36)     not null,
-    created_at bigint       not null,
-    updated_at bigint       not null,
-    primary key (id),
-    foreign key fk_contacts_user_id (user_id) references users (id)
-) engine = innodb;
+CREATE TABLE contacts (
+    id VARCHAR(36) PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100),
+    email VARCHAR(100),
+    phone VARCHAR(100),
+    user_id VARCHAR(36) NOT NULL,
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL,
+    CONSTRAINT fk_contacts_user_id FOREIGN KEY (user_id) REFERENCES users (id)
+);
 
 -- +goose Down
-drop table contacts;
+DROP TABLE contacts;

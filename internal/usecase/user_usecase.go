@@ -2,23 +2,23 @@ package usecase
 
 import (
 	"context"
-	"database/sql"
 	"golang-clean-architecture/internal/apperror"
 	"golang-clean-architecture/internal/auth"
-	dbmodel "golang-clean-architecture/internal/entity/db/model"
-	"golang-clean-architecture/internal/model"
-	"golang-clean-architecture/internal/model/converter"
+	"golang-clean-architecture/internal/dto"
+	"golang-clean-architecture/internal/dto/converter"
+	dbmodel "golang-clean-architecture/internal/persistence/model"
 	"golang-clean-architecture/internal/repository"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/uptrace/bun"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserUseCase struct {
-	DB             *sql.DB
+	DB             *bun.DB
 	Log            *logrus.Logger
 	Validate       *validator.Validate
 	UserRepository *repository.UserRepository
@@ -26,7 +26,7 @@ type UserUseCase struct {
 	JwtTTL         time.Duration
 }
 
-func NewUserUseCase(db *sql.DB, logger *logrus.Logger, validate *validator.Validate,
+func NewUserUseCase(db *bun.DB, logger *logrus.Logger, validate *validator.Validate,
 	userRepository *repository.UserRepository, jwtSecret string, jwtTTL time.Duration) *UserUseCase {
 	return &UserUseCase{
 		DB:             db,
@@ -38,7 +38,7 @@ func NewUserUseCase(db *sql.DB, logger *logrus.Logger, validate *validator.Valid
 	}
 }
 
-func (c *UserUseCase) Create(ctx context.Context, request *model.RegisterUserRequest) (*model.UserResponse, error) {
+func (c *UserUseCase) Create(ctx context.Context, request *dto.RegisterUserRequest) (*dto.UserResponse, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.Warnf("Failed to start transaction : %+v", err)
@@ -79,7 +79,7 @@ func (c *UserUseCase) Create(ctx context.Context, request *model.RegisterUserReq
 	return converter.UserToResponse(user), nil
 }
 
-func (c *UserUseCase) Login(ctx context.Context, request *model.LoginUserRequest) (*model.UserResponse, error) {
+func (c *UserUseCase) Login(ctx context.Context, request *dto.LoginUserRequest) (*dto.UserResponse, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.Warnf("Failed to start transaction : %+v", err)
@@ -126,7 +126,7 @@ func (c *UserUseCase) Login(ctx context.Context, request *model.LoginUserRequest
 	return converter.UserToTokenResponse(jwtToken), nil
 }
 
-func (c *UserUseCase) Current(ctx context.Context, request *model.GetUserRequest) (*model.UserResponse, error) {
+func (c *UserUseCase) Current(ctx context.Context, request *dto.GetUserRequest) (*dto.UserResponse, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.Warnf("Failed to start transaction : %+v", err)
@@ -157,7 +157,7 @@ func (c *UserUseCase) Current(ctx context.Context, request *model.GetUserRequest
 	return converter.UserToResponse(user), nil
 }
 
-func (c *UserUseCase) Logout(ctx context.Context, request *model.LogoutUserRequest) (bool, error) {
+func (c *UserUseCase) Logout(ctx context.Context, request *dto.LogoutUserRequest) (bool, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.Warnf("Failed to start transaction : %+v", err)
@@ -194,7 +194,7 @@ func (c *UserUseCase) Logout(ctx context.Context, request *model.LogoutUserReque
 	return true, nil
 }
 
-func (c *UserUseCase) Update(ctx context.Context, request *model.UpdateUserRequest) (*model.UserResponse, error) {
+func (c *UserUseCase) Update(ctx context.Context, request *dto.UpdateUserRequest) (*dto.UserResponse, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.Warnf("Failed to start transaction : %+v", err)

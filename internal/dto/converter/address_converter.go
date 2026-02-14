@@ -1,12 +1,12 @@
 package converter
 
 import (
-	dbmodel "golang-clean-architecture/internal/entity/db/model"
-	"golang-clean-architecture/internal/model"
+	"golang-clean-architecture/internal/dto"
+	dbmodel "golang-clean-architecture/internal/persistence/model"
 )
 
-func AddressToResponse(address *dbmodel.Addresses) *model.AddressResponse {
-	return &model.AddressResponse{
+func AddressToResponse(address *dbmodel.Addresses) *dto.AddressResponse {
+	return &dto.AddressResponse{
 		ID:         address.ID,
 		Street:     stringValueOrEmpty(address.Street),
 		City:       stringValueOrEmpty(address.City),

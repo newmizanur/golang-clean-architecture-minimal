@@ -1,18 +1,16 @@
 -- +goose Up
-create table addresses
-(
-    id          char(36)     not null,
-    contact_id  char(36)     not null,
-    street      varchar(255),
-    city        varchar(255),
-    province    varchar(255),
-    postal_code varchar(10),
-    country     varchar(100),
-    created_at  bigint       not null,
-    updated_at  bigint       not null,
-    primary key (id),
-    foreign key fk_addresses_contact_id (contact_id) references contacts (id)
-) engine = innodb;
+CREATE TABLE addresses (
+    id VARCHAR(36) PRIMARY KEY,
+    contact_id VARCHAR(36) NOT NULL,
+    street VARCHAR(255),
+    city VARCHAR(255),
+    province VARCHAR(255),
+    postal_code VARCHAR(10),
+    country VARCHAR(100),
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL,
+    CONSTRAINT fk_addresses_contact_id FOREIGN KEY (contact_id) REFERENCES contacts (id)
+);
 
 -- +goose Down
-drop table addresses;
+DROP TABLE addresses;

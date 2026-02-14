@@ -90,6 +90,6 @@ var UnknownErrors = struct {
 	SQLNoRowsError,
 	UnknownValidationError *AppError
 }{
-	SQLNoRowsError:         NewAppError(99091, http.StatusNotFound, "qrm: no rows in result set"),
+	SQLNoRowsError:         NewAppError(99091, http.StatusNotFound, "sql: no rows in result set"),
 	UnknownValidationError: NewAppError(99090, http.StatusBadRequest, "unknown validation error"),
 }

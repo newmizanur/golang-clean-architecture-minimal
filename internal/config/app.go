@@ -1,7 +1,6 @@
 package config
 
 import (
-	"database/sql"
 	"golang-clean-architecture/internal/delivery/http"
 	"golang-clean-architecture/internal/delivery/http/middleware"
 	"golang-clean-architecture/internal/delivery/http/route"
@@ -13,10 +12,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/uptrace/bun"
 )
 
 type BootstrapConfig struct {
-	DB       *sql.DB
+	DB       *bun.DB
 	App      *echo.Echo
 	Log      *logrus.Logger
 	Validate *validator.Validate

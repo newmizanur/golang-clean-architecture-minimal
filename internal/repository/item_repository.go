@@ -2,83 +2,59 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 
 	"golang-clean-architecture/internal/apperror"
-	dbmodel "golang-clean-architecture/internal/entity/db/model"
-	t "golang-clean-architecture/internal/entity/db/table"
-	"golang-clean-architecture/internal/model"
+	"golang-clean-architecture/internal/dto"
+	dbmodel "golang-clean-architecture/internal/persistence/model"
 
-	"github.com/go-jet/jet/v2/mysql"
-	"github.com/go-jet/jet/v2/qrm"
 	"github.com/sirupsen/logrus"
+	"github.com/uptrace/bun"
 )
 
 type ItemRepository struct {
-	DB  *sql.DB
+	DB  *bun.DB
 	Log *logrus.Logger
 }
 
-func NewItemRepository(db *sql.DB, log *logrus.Logger) *ItemRepository {
+func NewItemRepository(db *bun.DB, log *logrus.Logger) *ItemRepository {
 	return &ItemRepository{
 		DB:  db,
 		Log: log,
 	}
 }
 
-func (r *ItemRepository) Create(ctx context.Context, tx *sql.Tx, item *dbmodel.Items) (int64, error) {
-	stmt := t.Items.INSERT(
-		t.Items.Name,
-		t.Items.Sku,
-		t.Items.Currency,
-		t.Items.Stock,
-		t.Items.CreatedAt,
-		t.Items.UpdatedAt,
-	).MODEL(item)
-
-	var db qrm.DB = r.DB
+func (r *ItemRepository) dbConn(tx bun.IDB) bun.IDB {
 	if tx != nil {
-		db = tx
+		return tx
 	}
+	return r.DB
+}
 
-	result, err := stmt.ExecContext(ctx, db)
+func (r *ItemRepository) Create(ctx context.Context, tx bun.IDB, item *dbmodel.Items) (int64, error) {
+	_, err := r.dbConn(tx).NewInsert().Model(item).Returning("id").Exec(ctx)
 	if err != nil {
 		return 0, err
 	}
-
-	return result.LastInsertId()
+	return item.ID, nil
 }
 
-func (r *ItemRepository) Update(ctx context.Context, tx *sql.Tx, item *dbmodel.Items) error {
-	stmt := t.Items.UPDATE(
-		t.Items.Name,
-		t.Items.Sku,
-		t.Items.Currency,
-		t.Items.Stock,
-	).MODEL(item).WHERE(t.Items.ID.EQ(mysql.Uint64(item.ID)))
-
-	var db qrm.DB = r.DB
-	if tx != nil {
-		db = tx
-	}
-
-	_, err := stmt.ExecContext(ctx, db)
+func (r *ItemRepository) Update(ctx context.Context, tx bun.IDB, item *dbmodel.Items) error {
+	_, err := r.dbConn(tx).NewUpdate().
+		Model(item).
+		Column("name", "sku", "currency", "stock", "updated_at").
+		WherePK().
+		Exec(ctx)
 	return err
 }
 
-func (r *ItemRepository) Get(ctx context.Context, tx *sql.Tx, id int64) (*dbmodel.Items, error) {
-	stmt := t.Items.SELECT(
-		t.Items.AllColumns,
-	).WHERE(t.Items.ID.EQ(mysql.Int64(id))).LIMIT(1)
-
-	var db qrm.DB = r.DB
-	if tx != nil {
-		db = tx
-		stmt = stmt.FOR(mysql.UPDATE())
-	}
-
+func (r *ItemRepository) Get(ctx context.Context, tx bun.IDB, id int64) (*dbmodel.Items, error) {
 	item := new(dbmodel.Items)
-	if err := stmt.QueryContext(ctx, db, item); err != nil {
+	err := r.dbConn(tx).NewSelect().
+		Model(item).
+		Where("id = ?", id).
+		Limit(1).
+		Scan(ctx)
+	if err != nil {
 		if apperror.IsNoRows(err) {
 			return nil, nil
 		}
@@ -87,98 +63,70 @@ func (r *ItemRepository) Get(ctx context.Context, tx *sql.Tx, id int64) (*dbmode
 	return item, nil
 }
 
-func (r *ItemRepository) Delete(ctx context.Context, tx *sql.Tx, id int64) error {
-	stmt := t.Items.DELETE().WHERE(t.Items.ID.EQ(mysql.Int64(id))).LIMIT(1)
-
-	var db qrm.DB = r.DB
-	if tx != nil {
-		db = tx
-	}
-
-	_, err := stmt.ExecContext(ctx, db)
+func (r *ItemRepository) Delete(ctx context.Context, tx bun.IDB, id int64) error {
+	_, err := r.dbConn(tx).NewDelete().
+		Model((*dbmodel.Items)(nil)).
+		Where("id = ?", id).
+		Exec(ctx)
 	return err
 }
 
-func (r *ItemRepository) Search(ctx context.Context, tx *sql.Tx, search *model.SearchItemRequest) ([]dbmodel.Items, int64, error) {
+func (r *ItemRepository) Search(ctx context.Context, tx bun.IDB, search *dto.SearchItemRequest) ([]dbmodel.Items, int64, error) {
 	var items []dbmodel.Items
-	filter := r.filterItem(search)
 	offset := (search.Page - 1) * search.Size
 
-	stmt := t.Items.SELECT(
-		t.Items.AllColumns,
-	).WHERE(filter).LIMIT(int64(search.Size)).OFFSET(int64(offset))
-	if orderBy := r.sortItem(search.Sort); len(orderBy) > 0 {
-		stmt = stmt.ORDER_BY(orderBy...)
-	}
-
-	var db qrm.DB = r.DB
-	if tx != nil {
-		db = tx
-	}
-
-	//For data
-	if err := stmt.QueryContext(ctx, db, &items); err != nil {
-		if apperror.IsNoRows(err) {
-			return items, 0, nil
-		}
-		return nil, 0, err
-	}
-
-	var result struct {
-		Total int64
-	}
-
-	countStmt := t.Items.SELECT(
-		mysql.COUNT(t.Items.ID).AS("total")).WHERE(filter)
-	if err := countStmt.QueryContext(ctx, db, &result); err != nil {
-		if apperror.IsNoRows(err) {
-			return items, 0, nil
-		}
-		return nil, 0, err
-	}
-
-	return items, result.Total, nil
-}
-
-func (r *ItemRepository) filterItem(search *model.SearchItemRequest) mysql.BoolExpression {
-	condition := mysql.Bool(true)
+	query := r.dbConn(tx).NewSelect().Model(&items)
 
 	if name := search.Name; name != "" {
 		pattern := "%" + name + "%"
-		condition = condition.AND(t.Items.Name.LIKE(mysql.String(pattern)))
+		query = query.Where("name ILIKE ?", pattern)
 	}
 
 	if sku := search.SKU; sku != "" {
 		pattern := "%" + sku + "%"
-		condition = condition.AND(t.Items.Sku.LIKE(mysql.String(pattern)))
+		query = query.Where("sku ILIKE ?", pattern)
 	}
 
-	return condition
+	if orderExpr := r.sortItem(search.Sort); orderExpr != "" {
+		query = query.OrderExpr(orderExpr)
+	}
+
+	count, err := query.Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	err = query.Limit(search.Size).Offset(offset).Scan(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return items, int64(count), nil
 }
 
-func (r *ItemRepository) sortItem(sort string) []mysql.OrderByClause {
+func (r *ItemRepository) sortItem(sort string) string {
 	switch sort {
 	case "name":
-		return []mysql.OrderByClause{t.Items.Name.ASC()}
+		return "name ASC"
 	case "-name":
-		return []mysql.OrderByClause{t.Items.Name.DESC()}
+		return "name DESC"
 	case "sku":
-		return []mysql.OrderByClause{t.Items.Sku.ASC()}
+		return "sku ASC"
 	case "-sku":
-		return []mysql.OrderByClause{t.Items.Sku.DESC()}
+		return "sku DESC"
 	case "stock":
-		return []mysql.OrderByClause{t.Items.Stock.ASC()}
+		return "stock ASC"
 	case "-stock":
-		return []mysql.OrderByClause{t.Items.Stock.DESC()}
+		return "stock DESC"
 	case "createdAt":
-		return []mysql.OrderByClause{t.Items.CreatedAt.ASC()}
+		return "created_at ASC"
 	case "-createdAt":
-		return []mysql.OrderByClause{t.Items.CreatedAt.DESC()}
+		return "created_at DESC"
 	case "updatedAt":
-		return []mysql.OrderByClause{t.Items.UpdatedAt.ASC()}
+		return "updated_at ASC"
 	case "-updatedAt":
-		return []mysql.OrderByClause{t.Items.UpdatedAt.DESC()}
+		return "updated_at DESC"
 	default:
-		return nil
+		return ""
 	}
 }

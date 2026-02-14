@@ -1,4 +1,4 @@
-package model
+package dto
 
 type WebResponse[T any] struct {
 	Data   T             `json:"data"`

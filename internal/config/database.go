@@ -3,18 +3,19 @@ package config
 import (
 	"database/sql"
 	"fmt"
+	"net/url"
 	"time"
 
-	t "golang-clean-architecture/internal/entity/db/table"
-
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
+	_ "github.com/uptrace/bun/driver/pgdriver"
 )
 
-func NewDatabase(viper *viper.Viper, log *logrus.Logger) *sql.DB {
+func NewDatabase(viper *viper.Viper, log *logrus.Logger) *bun.DB {
 	username := viper.GetString("database.username")
-	password := viper.GetString("database.password")
+	password := url.QueryEscape(viper.GetString("database.password"))
 	host := viper.GetString("database.host")
 	port := viper.GetInt("database.port")
 	database := viper.GetString("database.name")
@@ -22,22 +23,20 @@ func NewDatabase(viper *viper.Viper, log *logrus.Logger) *sql.DB {
 	maxConnection := viper.GetInt("database.pool.max")
 	maxLifeTimeConnection := viper.GetInt("database.pool.lifetime")
 
-	t.UseSchema(database) //for jet
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", username, password, host, port, database)
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local", username, password, host, port, database)
-
-	db, err := sql.Open("mysql", dsn)
+	sqldb, err := sql.Open("pg", dsn)
 	if err != nil {
 		log.Fatalf("failed to connect database: %v", err)
 	}
 
-	if err := db.Ping(); err != nil {
+	if err := sqldb.Ping(); err != nil {
 		log.Fatalf("failed to ping database: %v", err)
 	}
 
-	db.SetMaxIdleConns(idleConnection)
-	db.SetMaxOpenConns(maxConnection)
-	db.SetConnMaxLifetime(time.Second * time.Duration(maxLifeTimeConnection))
+	sqldb.SetMaxIdleConns(idleConnection)
+	sqldb.SetMaxOpenConns(maxConnection)
+	sqldb.SetConnMaxLifetime(time.Second * time.Duration(maxLifeTimeConnection))
 
-	return db
+	return bun.NewDB(sqldb, pgdialect.New())
 }

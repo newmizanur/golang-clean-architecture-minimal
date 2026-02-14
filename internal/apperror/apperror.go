@@ -1,9 +1,8 @@
 package apperror
 
 import (
+	"database/sql"
 	"errors"
-
-	"github.com/go-jet/jet/v2/qrm"
 )
 
 type AppError struct {
@@ -25,5 +24,5 @@ func NewAppError(code int, status int, message string) *AppError {
 }
 
 func IsNoRows(err error) bool {
-	return errors.Is(err, qrm.ErrNoRows)
+	return errors.Is(err, sql.ErrNoRows)
 }

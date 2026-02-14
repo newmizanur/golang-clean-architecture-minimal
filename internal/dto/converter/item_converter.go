@@ -1,12 +1,12 @@
 package converter
 
 import (
-	dbmodel "golang-clean-architecture/internal/entity/db/model"
-	"golang-clean-architecture/internal/model"
+	"golang-clean-architecture/internal/dto"
+	dbmodel "golang-clean-architecture/internal/persistence/model"
 )
 
-func ItemToResponse(item *dbmodel.Items) *model.CreateItemResponse {
-	return &model.CreateItemResponse{
+func ItemToResponse(item *dbmodel.Items) *dto.CreateItemResponse {
+	return &dto.CreateItemResponse{
 		ID:        int64(item.ID),
 		Name:      item.Name,
 		SKU:       item.Sku,

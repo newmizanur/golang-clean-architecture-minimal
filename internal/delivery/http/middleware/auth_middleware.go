@@ -6,7 +6,7 @@ import (
 	"golang-clean-architecture/internal/apperror"
 	"golang-clean-architecture/internal/auth"
 	"golang-clean-architecture/internal/delivery/http/response"
-	"golang-clean-architecture/internal/model"
+	"golang-clean-architecture/internal/dto"
 
 	"github.com/labstack/echo/v4"
 )
@@ -29,12 +29,12 @@ func NewAuth(jwtSecret string) echo.MiddlewareFunc {
 				return response.NewErrorBuilder(apperror.AuthErrors.Unauthorized).Send(ctx)
 			}
 
-			ctx.Set("auth", &model.Auth{ID: userID})
+			ctx.Set("auth", &dto.Auth{ID: userID})
 			return next(ctx)
 		}
 	}
 }
 
-func GetUser(ctx echo.Context) *model.Auth {
-	return ctx.Get("auth").(*model.Auth)
+func GetUser(ctx echo.Context) *dto.Auth {
+	return ctx.Get("auth").(*dto.Auth)
 }

@@ -4,7 +4,7 @@ import (
 	"golang-clean-architecture/internal/apperror"
 	"golang-clean-architecture/internal/delivery/http/middleware"
 	httpresponse "golang-clean-architecture/internal/delivery/http/response"
-	"golang-clean-architecture/internal/model"
+	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/usecase"
 
 	"github.com/labstack/echo/v4"
@@ -24,7 +24,7 @@ func NewUserController(useCase *usecase.UserUseCase, logger *logrus.Logger) *Use
 }
 
 func (c *UserController) Register(ctx echo.Context) error {
-	request := new(model.RegisterUserRequest)
+	request := new(dto.RegisterUserRequest)
 	if err := ctx.Bind(request); err != nil {
 		c.Log.Warnf("Failed to parse request body : %+v", err)
 		return httpresponse.NewErrorBuilder(apperror.UserErrors.InvalidRequest).Send(ctx)
@@ -40,7 +40,7 @@ func (c *UserController) Register(ctx echo.Context) error {
 }
 
 func (c *UserController) Login(ctx echo.Context) error {
-	request := new(model.LoginUserRequest)
+	request := new(dto.LoginUserRequest)
 	if err := ctx.Bind(request); err != nil {
 		c.Log.Warnf("Failed to parse request body : %+v", err)
 		return httpresponse.NewErrorBuilder(apperror.UserErrors.InvalidRequest).Send(ctx)
@@ -58,7 +58,7 @@ func (c *UserController) Login(ctx echo.Context) error {
 func (c *UserController) Current(ctx echo.Context) error {
 	auth := middleware.GetUser(ctx)
 
-	request := &model.GetUserRequest{
+	request := &dto.GetUserRequest{
 		ID: auth.ID,
 	}
 
@@ -74,7 +74,7 @@ func (c *UserController) Current(ctx echo.Context) error {
 func (c *UserController) Logout(ctx echo.Context) error {
 	auth := middleware.GetUser(ctx)
 
-	request := &model.LogoutUserRequest{
+	request := &dto.LogoutUserRequest{
 		ID: auth.ID,
 	}
 
@@ -90,7 +90,7 @@ func (c *UserController) Logout(ctx echo.Context) error {
 func (c *UserController) Update(ctx echo.Context) error {
 	auth := middleware.GetUser(ctx)
 
-	request := new(model.UpdateUserRequest)
+	request := new(dto.UpdateUserRequest)
 	if err := ctx.Bind(request); err != nil {
 		c.Log.Warnf("Failed to parse request body : %+v", err)
 		return httpresponse.NewErrorBuilder(apperror.UserErrors.InvalidRequest).Send(ctx)

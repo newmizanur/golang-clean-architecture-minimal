@@ -2,27 +2,27 @@ package usecase
 
 import (
 	"context"
-	"database/sql"
 	"golang-clean-architecture/internal/apperror"
-	dbmodel "golang-clean-architecture/internal/entity/db/model"
-	"golang-clean-architecture/internal/model"
-	"golang-clean-architecture/internal/model/converter"
+	"golang-clean-architecture/internal/dto"
+	"golang-clean-architecture/internal/dto/converter"
+	dbmodel "golang-clean-architecture/internal/persistence/model"
 	"golang-clean-architecture/internal/repository"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/uptrace/bun"
 )
 
 type ContactUseCase struct {
-	DB                *sql.DB
+	DB                *bun.DB
 	Log               *logrus.Logger
 	Validate          *validator.Validate
 	ContactRepository *repository.ContactRepository
 }
 
-func NewContactUseCase(db *sql.DB, logger *logrus.Logger, validate *validator.Validate,
+func NewContactUseCase(db *bun.DB, logger *logrus.Logger, validate *validator.Validate,
 	contactRepository *repository.ContactRepository) *ContactUseCase {
 	return &ContactUseCase{
 		DB:                db,
@@ -32,7 +32,7 @@ func NewContactUseCase(db *sql.DB, logger *logrus.Logger, validate *validator.Va
 	}
 }
 
-func (c *ContactUseCase) Create(ctx context.Context, request *model.CreateContactRequest) (*model.ContactResponse, error) {
+func (c *ContactUseCase) Create(ctx context.Context, request *dto.CreateContactRequest) (*dto.ContactResponse, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.WithError(err).Error("error starting transaction")
@@ -70,7 +70,7 @@ func (c *ContactUseCase) Create(ctx context.Context, request *model.CreateContac
 	return converter.ContactToResponse(contact), nil
 }
 
-func (c *ContactUseCase) Update(ctx context.Context, request *model.UpdateContactRequest) (*model.ContactResponse, error) {
+func (c *ContactUseCase) Update(ctx context.Context, request *dto.UpdateContactRequest) (*dto.ContactResponse, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.WithError(err).Error("error starting transaction")
@@ -112,7 +112,7 @@ func (c *ContactUseCase) Update(ctx context.Context, request *model.UpdateContac
 	return converter.ContactToResponse(contact), nil
 }
 
-func (c *ContactUseCase) Get(ctx context.Context, request *model.GetContactRequest) (*model.ContactResponse, error) {
+func (c *ContactUseCase) Get(ctx context.Context, request *dto.GetContactRequest) (*dto.ContactResponse, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.WithError(err).Error("error starting transaction")
@@ -143,7 +143,7 @@ func (c *ContactUseCase) Get(ctx context.Context, request *model.GetContactReque
 	return converter.ContactToResponse(contact), nil
 }
 
-func (c *ContactUseCase) Delete(ctx context.Context, request *model.DeleteContactRequest) error {
+func (c *ContactUseCase) Delete(ctx context.Context, request *dto.DeleteContactRequest) error {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.WithError(err).Error("error starting transaction")
@@ -179,7 +179,7 @@ func (c *ContactUseCase) Delete(ctx context.Context, request *model.DeleteContac
 	return nil
 }
 
-func (c *ContactUseCase) Search(ctx context.Context, request *model.SearchContactRequest) ([]model.ContactResponse, int64, error) {
+func (c *ContactUseCase) Search(ctx context.Context, request *dto.SearchContactRequest) ([]dto.ContactResponse, int64, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.WithError(err).Error("error starting transaction")
@@ -203,7 +203,7 @@ func (c *ContactUseCase) Search(ctx context.Context, request *model.SearchContac
 		return nil, 0, apperror.ContactErrors.FailedToSearch
 	}
 
-	responses := make([]model.ContactResponse, len(contacts))
+	responses := make([]dto.ContactResponse, len(contacts))
 	for i, contact := range contacts {
 		responses[i] = *converter.ContactToResponse(&contact)
 	}
