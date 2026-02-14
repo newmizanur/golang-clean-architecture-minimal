@@ -15,17 +15,3 @@ type Addresses struct {
 	CreatedAt  int64   `bun:"column:created_at"`
 	UpdatedAt  int64   `bun:"column:updated_at"`
 }
-
-var AddressCols = struct {
-	ID, ContactID, Street, City, Province, PostalCode, Country, CreatedAt, UpdatedAt string
-}{
-	ID:         "id",
-	ContactID:  "contact_id",
-	Street:     "street",
-	City:       "city",
-	Province:   "province",
-	PostalCode: "postal_code",
-	Country:    "country",
-	CreatedAt:  "created_at",
-	UpdatedAt:  "updated_at",
-}

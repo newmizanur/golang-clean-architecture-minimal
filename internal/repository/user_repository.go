@@ -31,7 +31,7 @@ func (r *UserRepository) dbConn(tx bun.IDB) bun.IDB {
 func (r *UserRepository) CountById(ctx context.Context, tx bun.IDB, id string) (int64, error) {
 	count, err := r.dbConn(tx).NewSelect().
 		Model((*m.Users)(nil)).
-		Where(m.UserCols.ID+" = ?", id).
+		Where("id = ?", id).
 		Count(ctx)
 	return int64(count), err
 }
@@ -40,7 +40,7 @@ func (r *UserRepository) FindById(ctx context.Context, tx bun.IDB, id string) (*
 	user := new(m.Users)
 	err := r.dbConn(tx).NewSelect().
 		Model(user).
-		Where(m.UserCols.ID+" = ?", id).
+		Where("id = ?", id).
 		Limit(1).
 		Scan(ctx)
 	if err != nil {
@@ -60,7 +60,7 @@ func (r *UserRepository) Create(ctx context.Context, tx bun.IDB, user *m.Users) 
 func (r *UserRepository) Update(ctx context.Context, tx bun.IDB, user *m.Users) error {
 	_, err := r.dbConn(tx).NewUpdate().
 		Model(user).
-		Column(m.UserCols.Password, m.UserCols.Name, m.UserCols.UpdatedAt).
+		Column("password", "name", "updated_at").
 		WherePK().
 		Exec(ctx)
 	return err

@@ -17,15 +17,3 @@ type Items struct {
 	CreatedAt *time.Time `bun:"column:created_at"`
 	UpdatedAt *time.Time `bun:"column:updated_at"`
 }
-
-var ItemCols = struct {
-	ID, Name, SKU, Currency, Stock, CreatedAt, UpdatedAt string
-}{
-	ID:        "id",
-	Name:      "name",
-	SKU:       "sku",
-	Currency:  "currency",
-	Stock:     "stock",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
-}

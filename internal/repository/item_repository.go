@@ -31,7 +31,7 @@ func (r *ItemRepository) dbConn(tx bun.IDB) bun.IDB {
 }
 
 func (r *ItemRepository) Create(ctx context.Context, tx bun.IDB, item *m.Items) (int64, error) {
-	_, err := r.dbConn(tx).NewInsert().Model(item).Returning(m.ItemCols.ID).Exec(ctx)
+	_, err := r.dbConn(tx).NewInsert().Model(item).Returning("id").Exec(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -41,7 +41,7 @@ func (r *ItemRepository) Create(ctx context.Context, tx bun.IDB, item *m.Items) 
 func (r *ItemRepository) Update(ctx context.Context, tx bun.IDB, item *m.Items) error {
 	_, err := r.dbConn(tx).NewUpdate().
 		Model(item).
-		Column(m.ItemCols.Name, m.ItemCols.SKU, m.ItemCols.Currency, m.ItemCols.Stock, m.ItemCols.UpdatedAt).
+		Column("name", "sku", "currency", "stock", "updated_at").
 		WherePK().
 		Exec(ctx)
 	return err
@@ -51,7 +51,7 @@ func (r *ItemRepository) Get(ctx context.Context, tx bun.IDB, id int64) (*m.Item
 	item := new(m.Items)
 	err := r.dbConn(tx).NewSelect().
 		Model(item).
-		Where(m.ItemCols.ID+" = ?", id).
+		Where("id = ?", id).
 		Limit(1).
 		Scan(ctx)
 	if err != nil {
@@ -66,7 +66,7 @@ func (r *ItemRepository) Get(ctx context.Context, tx bun.IDB, id int64) (*m.Item
 func (r *ItemRepository) Delete(ctx context.Context, tx bun.IDB, id int64) error {
 	_, err := r.dbConn(tx).NewDelete().
 		Model((*m.Items)(nil)).
-		Where(m.ItemCols.ID+" = ?", id).
+		Where("id = ?", id).
 		Exec(ctx)
 	return err
 }
@@ -79,12 +79,12 @@ func (r *ItemRepository) Search(ctx context.Context, tx bun.IDB, search *dto.Sea
 
 	if name := search.Name; name != "" {
 		pattern := "%" + name + "%"
-		query = query.Where(m.ItemCols.Name+" ILIKE ?", pattern)
+		query = query.Where("name ILIKE ?", pattern)
 	}
 
 	if sku := search.SKU; sku != "" {
 		pattern := "%" + sku + "%"
-		query = query.Where(m.ItemCols.SKU+" ILIKE ?", pattern)
+		query = query.Where("sku ILIKE ?", pattern)
 	}
 
 	if orderExpr := r.sortItem(search.Sort); orderExpr != "" {
@@ -105,11 +105,11 @@ func (r *ItemRepository) Search(ctx context.Context, tx bun.IDB, search *dto.Sea
 }
 
 var sortableItemCols = map[string]string{
-	"name":      m.ItemCols.Name,
-	"sku":       m.ItemCols.SKU,
-	"stock":     m.ItemCols.Stock,
-	"createdAt": m.ItemCols.CreatedAt,
-	"updatedAt": m.ItemCols.UpdatedAt,
+	"name":      "name",
+	"sku":       "sku",
+	"stock":     "stock",
+	"createdAt": "created_at",
+	"updatedAt": "updated_at",
 }
 
 func (r *ItemRepository) sortItem(sort string) string {

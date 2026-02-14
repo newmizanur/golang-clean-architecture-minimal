@@ -33,8 +33,8 @@ func (r *ContactRepository) FindByIdAndUserId(ctx context.Context, tx bun.IDB, i
 	contact := new(m.Contacts)
 	err := r.dbConn(tx).NewSelect().
 		Model(contact).
-		Where(m.ContactCols.ID+" = ?", id).
-		Where(m.ContactCols.UserID+" = ?", userId).
+		Where("id = ?", id).
+		Where("user_id = ?", userId).
 		Limit(1).
 		Scan(ctx)
 	if err != nil {
@@ -52,21 +52,21 @@ func (r *ContactRepository) Search(ctx context.Context, tx bun.IDB, request *dto
 
 	query := r.dbConn(tx).NewSelect().
 		Model(&contacts).
-		Where(m.ContactCols.UserID+" = ?", request.UserId)
+		Where("user_id = ?", request.UserId)
 
 	if name := request.Name; name != "" {
 		pattern := "%" + name + "%"
-		query = query.Where("("+m.ContactCols.FirstName+" ILIKE ? OR "+m.ContactCols.LastName+" ILIKE ?)", pattern, pattern)
+		query = query.Where("(first_name ILIKE ? OR last_name ILIKE ?)", pattern, pattern)
 	}
 
 	if phone := request.Phone; phone != "" {
 		pattern := "%" + phone + "%"
-		query = query.Where(m.ContactCols.Phone+" ILIKE ?", pattern)
+		query = query.Where("phone ILIKE ?", pattern)
 	}
 
 	if email := request.Email; email != "" {
 		pattern := "%" + email + "%"
-		query = query.Where(m.ContactCols.Email+" ILIKE ?", pattern)
+		query = query.Where("email ILIKE ?", pattern)
 	}
 
 	count, err := query.Count(ctx)
@@ -90,7 +90,7 @@ func (r *ContactRepository) Create(ctx context.Context, tx bun.IDB, contact *m.C
 func (r *ContactRepository) Update(ctx context.Context, tx bun.IDB, contact *m.Contacts) error {
 	_, err := r.dbConn(tx).NewUpdate().
 		Model(contact).
-		Column(m.ContactCols.FirstName, m.ContactCols.LastName, m.ContactCols.Email, m.ContactCols.Phone, m.ContactCols.UpdatedAt).
+		Column("first_name", "last_name", "email", "phone", "updated_at").
 		WherePK().
 		Exec(ctx)
 	return err

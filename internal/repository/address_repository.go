@@ -32,8 +32,8 @@ func (r *AddressRepository) FindByIdAndContactId(ctx context.Context, tx bun.IDB
 	address := new(m.Addresses)
 	err := r.dbConn(tx).NewSelect().
 		Model(address).
-		Where(m.AddressCols.ID+" = ?", id).
-		Where(m.AddressCols.ContactID+" = ?", contactId).
+		Where("id = ?", id).
+		Where("contact_id = ?", contactId).
 		Limit(1).
 		Scan(ctx)
 	if err != nil {
@@ -49,7 +49,7 @@ func (r *AddressRepository) FindAllByContactId(ctx context.Context, tx bun.IDB, 
 	var addresses []m.Addresses
 	err := r.dbConn(tx).NewSelect().
 		Model(&addresses).
-		Where(m.AddressCols.ContactID+" = ?", contactId).
+		Where("contact_id = ?", contactId).
 		Scan(ctx)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (r *AddressRepository) Create(ctx context.Context, tx bun.IDB, address *m.A
 func (r *AddressRepository) Update(ctx context.Context, tx bun.IDB, address *m.Addresses) error {
 	_, err := r.dbConn(tx).NewUpdate().
 		Model(address).
-		Column(m.AddressCols.Street, m.AddressCols.City, m.AddressCols.Province, m.AddressCols.PostalCode, m.AddressCols.Country, m.AddressCols.UpdatedAt).
+		Column("street", "city", "province", "postal_code", "country", "updated_at").
 		WherePK().
 		Exec(ctx)
 	return err

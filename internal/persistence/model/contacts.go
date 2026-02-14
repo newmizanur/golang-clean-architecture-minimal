@@ -14,16 +14,3 @@ type Contacts struct {
 	CreatedAt int64   `bun:"column:created_at"`
 	UpdatedAt int64   `bun:"column:updated_at"`
 }
-
-var ContactCols = struct {
-	ID, FirstName, LastName, Email, Phone, UserID, CreatedAt, UpdatedAt string
-}{
-	ID:        "id",
-	FirstName: "first_name",
-	LastName:  "last_name",
-	Email:     "email",
-	Phone:     "phone",
-	UserID:    "user_id",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
-}
