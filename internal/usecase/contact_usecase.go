@@ -5,7 +5,7 @@ import (
 	"golang-clean-architecture/internal/apperror"
 	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/dto/converter"
-	dbmodel "golang-clean-architecture/internal/persistence/model"
+	m "golang-clean-architecture/internal/persistence/model"
 	"golang-clean-architecture/internal/repository"
 	"time"
 
@@ -46,7 +46,7 @@ func (c *ContactUseCase) Create(ctx context.Context, request *dto.CreateContactR
 	}
 
 	now := time.Now().UnixMilli()
-	contact := &dbmodel.Contacts{
+	contact := &m.Contacts{
 		ID:        uuid.New().String(),
 		FirstName: request.FirstName,
 		LastName:  stringPtrOrNil(request.LastName),

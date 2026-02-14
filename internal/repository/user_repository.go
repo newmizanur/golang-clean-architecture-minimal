@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"golang-clean-architecture/internal/apperror"
-	dbmodel "golang-clean-architecture/internal/persistence/model"
+	m "golang-clean-architecture/internal/persistence/model"
 
 	"github.com/sirupsen/logrus"
 	"github.com/uptrace/bun"
@@ -30,17 +30,17 @@ func (r *UserRepository) dbConn(tx bun.IDB) bun.IDB {
 
 func (r *UserRepository) CountById(ctx context.Context, tx bun.IDB, id string) (int64, error) {
 	count, err := r.dbConn(tx).NewSelect().
-		Model((*dbmodel.Users)(nil)).
-		Where("id = ?", id).
+		Model((*m.Users)(nil)).
+		Where(m.UserCols.ID+" = ?", id).
 		Count(ctx)
 	return int64(count), err
 }
 
-func (r *UserRepository) FindById(ctx context.Context, tx bun.IDB, id string) (*dbmodel.Users, error) {
-	user := new(dbmodel.Users)
+func (r *UserRepository) FindById(ctx context.Context, tx bun.IDB, id string) (*m.Users, error) {
+	user := new(m.Users)
 	err := r.dbConn(tx).NewSelect().
 		Model(user).
-		Where("id = ?", id).
+		Where(m.UserCols.ID+" = ?", id).
 		Limit(1).
 		Scan(ctx)
 	if err != nil {
@@ -52,21 +52,21 @@ func (r *UserRepository) FindById(ctx context.Context, tx bun.IDB, id string) (*
 	return user, nil
 }
 
-func (r *UserRepository) Create(ctx context.Context, tx bun.IDB, user *dbmodel.Users) error {
+func (r *UserRepository) Create(ctx context.Context, tx bun.IDB, user *m.Users) error {
 	_, err := r.dbConn(tx).NewInsert().Model(user).Exec(ctx)
 	return err
 }
 
-func (r *UserRepository) Update(ctx context.Context, tx bun.IDB, user *dbmodel.Users) error {
+func (r *UserRepository) Update(ctx context.Context, tx bun.IDB, user *m.Users) error {
 	_, err := r.dbConn(tx).NewUpdate().
 		Model(user).
-		Column("password", "name", "updated_at").
+		Column(m.UserCols.Password, m.UserCols.Name, m.UserCols.UpdatedAt).
 		WherePK().
 		Exec(ctx)
 	return err
 }
 
-func (r *UserRepository) Delete(ctx context.Context, tx bun.IDB, user *dbmodel.Users) error {
+func (r *UserRepository) Delete(ctx context.Context, tx bun.IDB, user *m.Users) error {
 	_, err := r.dbConn(tx).NewDelete().Model(user).WherePK().Exec(ctx)
 	return err
 }

@@ -5,7 +5,7 @@ import (
 
 	"golang-clean-architecture/internal/apperror"
 	"golang-clean-architecture/internal/dto"
-	dbmodel "golang-clean-architecture/internal/persistence/model"
+	m "golang-clean-architecture/internal/persistence/model"
 
 	"github.com/sirupsen/logrus"
 	"github.com/uptrace/bun"
@@ -30,28 +30,28 @@ func (r *ItemRepository) dbConn(tx bun.IDB) bun.IDB {
 	return r.DB
 }
 
-func (r *ItemRepository) Create(ctx context.Context, tx bun.IDB, item *dbmodel.Items) (int64, error) {
-	_, err := r.dbConn(tx).NewInsert().Model(item).Returning(dbmodel.ItemCols.ID).Exec(ctx)
+func (r *ItemRepository) Create(ctx context.Context, tx bun.IDB, item *m.Items) (int64, error) {
+	_, err := r.dbConn(tx).NewInsert().Model(item).Returning(m.ItemCols.ID).Exec(ctx)
 	if err != nil {
 		return 0, err
 	}
 	return item.ID, nil
 }
 
-func (r *ItemRepository) Update(ctx context.Context, tx bun.IDB, item *dbmodel.Items) error {
+func (r *ItemRepository) Update(ctx context.Context, tx bun.IDB, item *m.Items) error {
 	_, err := r.dbConn(tx).NewUpdate().
 		Model(item).
-		Column(dbmodel.ItemCols.Name, dbmodel.ItemCols.SKU, dbmodel.ItemCols.Currency, dbmodel.ItemCols.Stock, dbmodel.ItemCols.UpdatedAt).
+		Column(m.ItemCols.Name, m.ItemCols.SKU, m.ItemCols.Currency, m.ItemCols.Stock, m.ItemCols.UpdatedAt).
 		WherePK().
 		Exec(ctx)
 	return err
 }
 
-func (r *ItemRepository) Get(ctx context.Context, tx bun.IDB, id int64) (*dbmodel.Items, error) {
-	item := new(dbmodel.Items)
+func (r *ItemRepository) Get(ctx context.Context, tx bun.IDB, id int64) (*m.Items, error) {
+	item := new(m.Items)
 	err := r.dbConn(tx).NewSelect().
 		Model(item).
-		Where(dbmodel.ItemCols.ID+" = ?", id).
+		Where(m.ItemCols.ID+" = ?", id).
 		Limit(1).
 		Scan(ctx)
 	if err != nil {
@@ -65,26 +65,26 @@ func (r *ItemRepository) Get(ctx context.Context, tx bun.IDB, id int64) (*dbmode
 
 func (r *ItemRepository) Delete(ctx context.Context, tx bun.IDB, id int64) error {
 	_, err := r.dbConn(tx).NewDelete().
-		Model((*dbmodel.Items)(nil)).
-		Where(dbmodel.ItemCols.ID+" = ?", id).
+		Model((*m.Items)(nil)).
+		Where(m.ItemCols.ID+" = ?", id).
 		Exec(ctx)
 	return err
 }
 
-func (r *ItemRepository) Search(ctx context.Context, tx bun.IDB, search *dto.SearchItemRequest) ([]dbmodel.Items, int64, error) {
-	var items []dbmodel.Items
+func (r *ItemRepository) Search(ctx context.Context, tx bun.IDB, search *dto.SearchItemRequest) ([]m.Items, int64, error) {
+	var items []m.Items
 	offset := (search.Page - 1) * search.Size
 
 	query := r.dbConn(tx).NewSelect().Model(&items)
 
 	if name := search.Name; name != "" {
 		pattern := "%" + name + "%"
-		query = query.Where(dbmodel.ItemCols.Name+" ILIKE ?", pattern)
+		query = query.Where(m.ItemCols.Name+" ILIKE ?", pattern)
 	}
 
 	if sku := search.SKU; sku != "" {
 		pattern := "%" + sku + "%"
-		query = query.Where(dbmodel.ItemCols.SKU+" ILIKE ?", pattern)
+		query = query.Where(m.ItemCols.SKU+" ILIKE ?", pattern)
 	}
 
 	if orderExpr := r.sortItem(search.Sort); orderExpr != "" {
@@ -105,11 +105,11 @@ func (r *ItemRepository) Search(ctx context.Context, tx bun.IDB, search *dto.Sea
 }
 
 var sortableItemCols = map[string]string{
-	"name":      dbmodel.ItemCols.Name,
-	"sku":       dbmodel.ItemCols.SKU,
-	"stock":     dbmodel.ItemCols.Stock,
-	"createdAt": dbmodel.ItemCols.CreatedAt,
-	"updatedAt": dbmodel.ItemCols.UpdatedAt,
+	"name":      m.ItemCols.Name,
+	"sku":       m.ItemCols.SKU,
+	"stock":     m.ItemCols.Stock,
+	"createdAt": m.ItemCols.CreatedAt,
+	"updatedAt": m.ItemCols.UpdatedAt,
 }
 
 func (r *ItemRepository) sortItem(sort string) string {

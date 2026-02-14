@@ -5,7 +5,7 @@ import (
 	"golang-clean-architecture/internal/apperror"
 	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/dto/converter"
-	dbmodel "golang-clean-architecture/internal/persistence/model"
+	m "golang-clean-architecture/internal/persistence/model"
 	"golang-clean-architecture/internal/repository"
 	"time"
 
@@ -58,7 +58,7 @@ func (c *AddressUseCase) Create(ctx context.Context, request *dto.CreateAddressR
 	}
 
 	now := time.Now().UnixMilli()
-	address := &dbmodel.Addresses{
+	address := &m.Addresses{
 		ID:         uuid.NewString(),
 		ContactID:  contact.ID,
 		Street:     stringPtrOrNil(request.Street),

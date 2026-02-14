@@ -4,7 +4,7 @@ import (
 	"context"
 	"golang-clean-architecture/internal/apperror"
 	"golang-clean-architecture/internal/dto"
-	dbmodel "golang-clean-architecture/internal/persistence/model"
+	m "golang-clean-architecture/internal/persistence/model"
 
 	"github.com/sirupsen/logrus"
 	"github.com/uptrace/bun"
@@ -29,12 +29,12 @@ func (r *ContactRepository) dbConn(tx bun.IDB) bun.IDB {
 	return r.DB
 }
 
-func (r *ContactRepository) FindByIdAndUserId(ctx context.Context, tx bun.IDB, id string, userId string) (*dbmodel.Contacts, error) {
-	contact := new(dbmodel.Contacts)
+func (r *ContactRepository) FindByIdAndUserId(ctx context.Context, tx bun.IDB, id string, userId string) (*m.Contacts, error) {
+	contact := new(m.Contacts)
 	err := r.dbConn(tx).NewSelect().
 		Model(contact).
-		Where("id = ?", id).
-		Where("user_id = ?", userId).
+		Where(m.ContactCols.ID+" = ?", id).
+		Where(m.ContactCols.UserID+" = ?", userId).
 		Limit(1).
 		Scan(ctx)
 	if err != nil {
@@ -46,27 +46,27 @@ func (r *ContactRepository) FindByIdAndUserId(ctx context.Context, tx bun.IDB, i
 	return contact, nil
 }
 
-func (r *ContactRepository) Search(ctx context.Context, tx bun.IDB, request *dto.SearchContactRequest) ([]dbmodel.Contacts, int64, error) {
-	var contacts []dbmodel.Contacts
+func (r *ContactRepository) Search(ctx context.Context, tx bun.IDB, request *dto.SearchContactRequest) ([]m.Contacts, int64, error) {
+	var contacts []m.Contacts
 	offset := (request.Page - 1) * request.Size
 
 	query := r.dbConn(tx).NewSelect().
 		Model(&contacts).
-		Where("user_id = ?", request.UserId)
+		Where(m.ContactCols.UserID+" = ?", request.UserId)
 
 	if name := request.Name; name != "" {
 		pattern := "%" + name + "%"
-		query = query.Where("(first_name ILIKE ? OR last_name ILIKE ?)", pattern, pattern)
+		query = query.Where("("+m.ContactCols.FirstName+" ILIKE ? OR "+m.ContactCols.LastName+" ILIKE ?)", pattern, pattern)
 	}
 
 	if phone := request.Phone; phone != "" {
 		pattern := "%" + phone + "%"
-		query = query.Where("phone ILIKE ?", pattern)
+		query = query.Where(m.ContactCols.Phone+" ILIKE ?", pattern)
 	}
 
 	if email := request.Email; email != "" {
 		pattern := "%" + email + "%"
-		query = query.Where("email ILIKE ?", pattern)
+		query = query.Where(m.ContactCols.Email+" ILIKE ?", pattern)
 	}
 
 	count, err := query.Count(ctx)
@@ -82,21 +82,21 @@ func (r *ContactRepository) Search(ctx context.Context, tx bun.IDB, request *dto
 	return contacts, int64(count), nil
 }
 
-func (r *ContactRepository) Create(ctx context.Context, tx bun.IDB, contact *dbmodel.Contacts) error {
+func (r *ContactRepository) Create(ctx context.Context, tx bun.IDB, contact *m.Contacts) error {
 	_, err := r.dbConn(tx).NewInsert().Model(contact).Exec(ctx)
 	return err
 }
 
-func (r *ContactRepository) Update(ctx context.Context, tx bun.IDB, contact *dbmodel.Contacts) error {
+func (r *ContactRepository) Update(ctx context.Context, tx bun.IDB, contact *m.Contacts) error {
 	_, err := r.dbConn(tx).NewUpdate().
 		Model(contact).
-		Column("first_name", "last_name", "email", "phone", "updated_at").
+		Column(m.ContactCols.FirstName, m.ContactCols.LastName, m.ContactCols.Email, m.ContactCols.Phone, m.ContactCols.UpdatedAt).
 		WherePK().
 		Exec(ctx)
 	return err
 }
 
-func (r *ContactRepository) Delete(ctx context.Context, tx bun.IDB, contact *dbmodel.Contacts) error {
+func (r *ContactRepository) Delete(ctx context.Context, tx bun.IDB, contact *m.Contacts) error {
 	_, err := r.dbConn(tx).NewDelete().Model(contact).WherePK().Exec(ctx)
 	return err
 }

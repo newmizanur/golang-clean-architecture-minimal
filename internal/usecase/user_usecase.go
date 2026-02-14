@@ -6,7 +6,7 @@ import (
 	"golang-clean-architecture/internal/auth"
 	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/dto/converter"
-	dbmodel "golang-clean-architecture/internal/persistence/model"
+	m "golang-clean-architecture/internal/persistence/model"
 	"golang-clean-architecture/internal/repository"
 	"time"
 
@@ -58,7 +58,7 @@ func (c *UserUseCase) Create(ctx context.Context, request *dto.RegisterUserReque
 	}
 
 	now := time.Now().UnixMilli()
-	user := &dbmodel.Users{
+	user := &m.Users{
 		ID:        uuid.NewString(),
 		Password:  string(password),
 		Name:      request.Name,

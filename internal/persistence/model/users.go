@@ -11,3 +11,13 @@ type Users struct {
 	CreatedAt int64  `bun:"column:created_at"`
 	UpdatedAt int64  `bun:"column:updated_at"`
 }
+
+var UserCols = struct {
+	ID, Name, Password, CreatedAt, UpdatedAt string
+}{
+	ID:        "id",
+	Name:      "name",
+	Password:  "password",
+	CreatedAt: "created_at",
+	UpdatedAt: "updated_at",
+}

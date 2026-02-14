@@ -7,7 +7,7 @@ import (
 	"golang-clean-architecture/internal/apperror"
 	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/dto/converter"
-	dbmodel "golang-clean-architecture/internal/persistence/model"
+	m "golang-clean-architecture/internal/persistence/model"
 	"golang-clean-architecture/internal/repository"
 
 	"github.com/sirupsen/logrus"
@@ -37,7 +37,7 @@ func (c *ItemUseCase) Create(ctx context.Context, request *dto.CreateItemRequest
 	defer tx.Rollback()
 
 	now := time.Now()
-	item := dbmodel.Items{
+	item := m.Items{
 		Name:      request.Name,
 		Sku:       request.SKU,
 		Currency:  request.Currency,
