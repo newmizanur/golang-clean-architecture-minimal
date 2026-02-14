@@ -12,19 +12,26 @@ import (
 )
 
 type ItemRepository struct {
-	base *BaseRepository[dbmodel.Items]
-	Log  *logrus.Logger
+	DB  *bun.DB
+	Log *logrus.Logger
 }
 
 func NewItemRepository(db *bun.DB, log *logrus.Logger) *ItemRepository {
 	return &ItemRepository{
-		base: NewBaseRepository[dbmodel.Items](db),
-		Log:  log,
+		DB:  db,
+		Log: log,
 	}
 }
 
+func (r *ItemRepository) dbConn(tx bun.IDB) bun.IDB {
+	if tx != nil {
+		return tx
+	}
+	return r.DB
+}
+
 func (r *ItemRepository) Create(ctx context.Context, tx bun.IDB, item *dbmodel.Items) (int64, error) {
-	err := r.base.Insert(ctx, tx, item, "id")
+	_, err := r.dbConn(tx).NewInsert().Model(item).Returning(dbmodel.ItemCols.ID).Exec(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -32,14 +39,21 @@ func (r *ItemRepository) Create(ctx context.Context, tx bun.IDB, item *dbmodel.I
 }
 
 func (r *ItemRepository) Update(ctx context.Context, tx bun.IDB, item *dbmodel.Items) error {
-	return r.base.UpdateByPK(ctx, tx, item, "name", "sku", "currency", "stock", "updated_at")
+	_, err := r.dbConn(tx).NewUpdate().
+		Model(item).
+		Column(dbmodel.ItemCols.Name, dbmodel.ItemCols.SKU, dbmodel.ItemCols.Currency, dbmodel.ItemCols.Stock, dbmodel.ItemCols.UpdatedAt).
+		WherePK().
+		Exec(ctx)
+	return err
 }
 
 func (r *ItemRepository) Get(ctx context.Context, tx bun.IDB, id int64) (*dbmodel.Items, error) {
 	item := new(dbmodel.Items)
-	err := r.base.FindOne(ctx, tx, item, func(q *bun.SelectQuery) *bun.SelectQuery {
-		return q.Where("id = ?", id).Limit(1)
-	})
+	err := r.dbConn(tx).NewSelect().
+		Model(item).
+		Where(dbmodel.ItemCols.ID+" = ?", id).
+		Limit(1).
+		Scan(ctx)
 	if err != nil {
 		if apperror.IsNoRows(err) {
 			return nil, nil
@@ -50,69 +64,73 @@ func (r *ItemRepository) Get(ctx context.Context, tx bun.IDB, id int64) (*dbmode
 }
 
 func (r *ItemRepository) Delete(ctx context.Context, tx bun.IDB, id int64) error {
-	return r.base.DeleteWhere(ctx, tx, "id = ?", id)
+	_, err := r.dbConn(tx).NewDelete().
+		Model((*dbmodel.Items)(nil)).
+		Where(dbmodel.ItemCols.ID+" = ?", id).
+		Exec(ctx)
+	return err
 }
 
 func (r *ItemRepository) Search(ctx context.Context, tx bun.IDB, search *dto.SearchItemRequest) ([]dbmodel.Items, int64, error) {
 	var items []dbmodel.Items
 	offset := (search.Page - 1) * search.Size
 
-	applyFilter := func(q *bun.SelectQuery) *bun.SelectQuery {
-		if name := search.Name; name != "" {
-			pattern := "%" + name + "%"
-			q = q.Where("name ILIKE ?", pattern)
-		}
+	query := r.dbConn(tx).NewSelect().Model(&items)
 
-		if sku := search.SKU; sku != "" {
-			pattern := "%" + sku + "%"
-			q = q.Where("sku ILIKE ?", pattern)
-		}
-
-		if orderExpr := r.sortItem(search.Sort); orderExpr != "" {
-			q = q.OrderExpr(orderExpr)
-		}
-
-		return q
+	if name := search.Name; name != "" {
+		pattern := "%" + name + "%"
+		query = query.Where(dbmodel.ItemCols.Name+" ILIKE ?", pattern)
 	}
 
-	count, err := r.base.Count(ctx, tx, applyFilter)
+	if sku := search.SKU; sku != "" {
+		pattern := "%" + sku + "%"
+		query = query.Where(dbmodel.ItemCols.SKU+" ILIKE ?", pattern)
+	}
+
+	if orderExpr := r.sortItem(search.Sort); orderExpr != "" {
+		query = query.OrderExpr(orderExpr)
+	}
+
+	count, err := query.Count(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	err = r.base.FindAll(ctx, tx, &items, func(q *bun.SelectQuery) *bun.SelectQuery {
-		return applyFilter(q).Limit(search.Size).Offset(offset)
-	})
+	err = query.Limit(search.Size).Offset(offset).Scan(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	return items, count, nil
+	return items, int64(count), nil
+}
+
+var sortableItemCols = map[string]string{
+	"name":      dbmodel.ItemCols.Name,
+	"sku":       dbmodel.ItemCols.SKU,
+	"stock":     dbmodel.ItemCols.Stock,
+	"createdAt": dbmodel.ItemCols.CreatedAt,
+	"updatedAt": dbmodel.ItemCols.UpdatedAt,
 }
 
 func (r *ItemRepository) sortItem(sort string) string {
-	switch sort {
-	case "name":
-		return "name ASC"
-	case "-name":
-		return "name DESC"
-	case "sku":
-		return "sku ASC"
-	case "-sku":
-		return "sku DESC"
-	case "stock":
-		return "stock ASC"
-	case "-stock":
-		return "stock DESC"
-	case "createdAt":
-		return "created_at ASC"
-	case "-createdAt":
-		return "created_at DESC"
-	case "updatedAt":
-		return "updated_at ASC"
-	case "-updatedAt":
-		return "updated_at DESC"
-	default:
+	if sort == "" {
 		return ""
 	}
+
+	order := "ASC"
+	if sort[0] == '-' {
+		order = "DESC"
+		sort = sort[1:]
+	}
+
+	if sort == "" {
+		return ""
+	}
+
+	column, ok := sortableItemCols[sort]
+	if !ok {
+		return ""
+	}
+
+	return column + " " + order
 }

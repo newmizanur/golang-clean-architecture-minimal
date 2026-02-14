@@ -10,28 +10,39 @@ import (
 )
 
 type UserRepository struct {
-	base *BaseRepository[dbmodel.Users]
-	Log  *logrus.Logger
+	DB  *bun.DB
+	Log *logrus.Logger
 }
 
 func NewUserRepository(db *bun.DB, log *logrus.Logger) *UserRepository {
 	return &UserRepository{
-		base: NewBaseRepository[dbmodel.Users](db),
-		Log:  log,
+		DB:  db,
+		Log: log,
 	}
 }
 
+func (r *UserRepository) dbConn(tx bun.IDB) bun.IDB {
+	if tx != nil {
+		return tx
+	}
+	return r.DB
+}
+
 func (r *UserRepository) CountById(ctx context.Context, tx bun.IDB, id string) (int64, error) {
-	return r.base.Count(ctx, tx, func(q *bun.SelectQuery) *bun.SelectQuery {
-		return q.Where("id = ?", id)
-	})
+	count, err := r.dbConn(tx).NewSelect().
+		Model((*dbmodel.Users)(nil)).
+		Where("id = ?", id).
+		Count(ctx)
+	return int64(count), err
 }
 
 func (r *UserRepository) FindById(ctx context.Context, tx bun.IDB, id string) (*dbmodel.Users, error) {
 	user := new(dbmodel.Users)
-	err := r.base.FindOne(ctx, tx, user, func(q *bun.SelectQuery) *bun.SelectQuery {
-		return q.Where("id = ?", id).Limit(1)
-	})
+	err := r.dbConn(tx).NewSelect().
+		Model(user).
+		Where("id = ?", id).
+		Limit(1).
+		Scan(ctx)
 	if err != nil {
 		if apperror.IsNoRows(err) {
 			return nil, nil
@@ -42,13 +53,20 @@ func (r *UserRepository) FindById(ctx context.Context, tx bun.IDB, id string) (*
 }
 
 func (r *UserRepository) Create(ctx context.Context, tx bun.IDB, user *dbmodel.Users) error {
-	return r.base.Insert(ctx, tx, user)
+	_, err := r.dbConn(tx).NewInsert().Model(user).Exec(ctx)
+	return err
 }
 
 func (r *UserRepository) Update(ctx context.Context, tx bun.IDB, user *dbmodel.Users) error {
-	return r.base.UpdateByPK(ctx, tx, user, "password", "name", "updated_at")
+	_, err := r.dbConn(tx).NewUpdate().
+		Model(user).
+		Column("password", "name", "updated_at").
+		WherePK().
+		Exec(ctx)
+	return err
 }
 
 func (r *UserRepository) Delete(ctx context.Context, tx bun.IDB, user *dbmodel.Users) error {
-	return r.base.DeleteByPK(ctx, tx, user)
+	_, err := r.dbConn(tx).NewDelete().Model(user).WherePK().Exec(ctx)
+	return err
 }
