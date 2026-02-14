@@ -10,32 +10,22 @@ import (
 )
 
 type AddressRepository struct {
-	DB  *bun.DB
-	Log *logrus.Logger
+	base *BaseRepository[dbmodel.Addresses]
+	Log  *logrus.Logger
 }
 
 func NewAddressRepository(db *bun.DB, log *logrus.Logger) *AddressRepository {
 	return &AddressRepository{
-		DB:  db,
-		Log: log,
+		base: NewBaseRepository[dbmodel.Addresses](db),
+		Log:  log,
 	}
-}
-
-func (r *AddressRepository) dbConn(tx bun.IDB) bun.IDB {
-	if tx != nil {
-		return tx
-	}
-	return r.DB
 }
 
 func (r *AddressRepository) FindByIdAndContactId(ctx context.Context, tx bun.IDB, id string, contactId string) (*dbmodel.Addresses, error) {
 	address := new(dbmodel.Addresses)
-	err := r.dbConn(tx).NewSelect().
-		Model(address).
-		Where("id = ?", id).
-		Where("contact_id = ?", contactId).
-		Limit(1).
-		Scan(ctx)
+	err := r.base.FindOne(ctx, tx, address, func(q *bun.SelectQuery) *bun.SelectQuery {
+		return q.Where("id = ?", id).Where("contact_id = ?", contactId).Limit(1)
+	})
 	if err != nil {
 		if apperror.IsNoRows(err) {
 			return nil, nil
@@ -47,10 +37,9 @@ func (r *AddressRepository) FindByIdAndContactId(ctx context.Context, tx bun.IDB
 
 func (r *AddressRepository) FindAllByContactId(ctx context.Context, tx bun.IDB, contactId string) ([]dbmodel.Addresses, error) {
 	var addresses []dbmodel.Addresses
-	err := r.dbConn(tx).NewSelect().
-		Model(&addresses).
-		Where("contact_id = ?", contactId).
-		Scan(ctx)
+	err := r.base.FindAll(ctx, tx, &addresses, func(q *bun.SelectQuery) *bun.SelectQuery {
+		return q.Where("contact_id = ?", contactId)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -58,20 +47,13 @@ func (r *AddressRepository) FindAllByContactId(ctx context.Context, tx bun.IDB, 
 }
 
 func (r *AddressRepository) Create(ctx context.Context, tx bun.IDB, address *dbmodel.Addresses) error {
-	_, err := r.dbConn(tx).NewInsert().Model(address).Exec(ctx)
-	return err
+	return r.base.Insert(ctx, tx, address)
 }
 
 func (r *AddressRepository) Update(ctx context.Context, tx bun.IDB, address *dbmodel.Addresses) error {
-	_, err := r.dbConn(tx).NewUpdate().
-		Model(address).
-		Column("street", "city", "province", "postal_code", "country", "updated_at").
-		WherePK().
-		Exec(ctx)
-	return err
+	return r.base.UpdateByPK(ctx, tx, address, "street", "city", "province", "postal_code", "country", "updated_at")
 }
 
 func (r *AddressRepository) Delete(ctx context.Context, tx bun.IDB, address *dbmodel.Addresses) error {
-	_, err := r.dbConn(tx).NewDelete().Model(address).WherePK().Exec(ctx)
-	return err
+	return r.base.DeleteByPK(ctx, tx, address)
 }

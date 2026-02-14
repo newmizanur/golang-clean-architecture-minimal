@@ -12,26 +12,19 @@ import (
 )
 
 type ItemRepository struct {
-	DB  *bun.DB
-	Log *logrus.Logger
+	base *BaseRepository[dbmodel.Items]
+	Log  *logrus.Logger
 }
 
 func NewItemRepository(db *bun.DB, log *logrus.Logger) *ItemRepository {
 	return &ItemRepository{
-		DB:  db,
-		Log: log,
+		base: NewBaseRepository[dbmodel.Items](db),
+		Log:  log,
 	}
-}
-
-func (r *ItemRepository) dbConn(tx bun.IDB) bun.IDB {
-	if tx != nil {
-		return tx
-	}
-	return r.DB
 }
 
 func (r *ItemRepository) Create(ctx context.Context, tx bun.IDB, item *dbmodel.Items) (int64, error) {
-	_, err := r.dbConn(tx).NewInsert().Model(item).Returning("id").Exec(ctx)
+	err := r.base.Insert(ctx, tx, item, "id")
 	if err != nil {
 		return 0, err
 	}
@@ -39,21 +32,14 @@ func (r *ItemRepository) Create(ctx context.Context, tx bun.IDB, item *dbmodel.I
 }
 
 func (r *ItemRepository) Update(ctx context.Context, tx bun.IDB, item *dbmodel.Items) error {
-	_, err := r.dbConn(tx).NewUpdate().
-		Model(item).
-		Column("name", "sku", "currency", "stock", "updated_at").
-		WherePK().
-		Exec(ctx)
-	return err
+	return r.base.UpdateByPK(ctx, tx, item, "name", "sku", "currency", "stock", "updated_at")
 }
 
 func (r *ItemRepository) Get(ctx context.Context, tx bun.IDB, id int64) (*dbmodel.Items, error) {
 	item := new(dbmodel.Items)
-	err := r.dbConn(tx).NewSelect().
-		Model(item).
-		Where("id = ?", id).
-		Limit(1).
-		Scan(ctx)
+	err := r.base.FindOne(ctx, tx, item, func(q *bun.SelectQuery) *bun.SelectQuery {
+		return q.Where("id = ?", id).Limit(1)
+	})
 	if err != nil {
 		if apperror.IsNoRows(err) {
 			return nil, nil
@@ -64,44 +50,44 @@ func (r *ItemRepository) Get(ctx context.Context, tx bun.IDB, id int64) (*dbmode
 }
 
 func (r *ItemRepository) Delete(ctx context.Context, tx bun.IDB, id int64) error {
-	_, err := r.dbConn(tx).NewDelete().
-		Model((*dbmodel.Items)(nil)).
-		Where("id = ?", id).
-		Exec(ctx)
-	return err
+	return r.base.DeleteWhere(ctx, tx, "id = ?", id)
 }
 
 func (r *ItemRepository) Search(ctx context.Context, tx bun.IDB, search *dto.SearchItemRequest) ([]dbmodel.Items, int64, error) {
 	var items []dbmodel.Items
 	offset := (search.Page - 1) * search.Size
 
-	query := r.dbConn(tx).NewSelect().Model(&items)
+	applyFilter := func(q *bun.SelectQuery) *bun.SelectQuery {
+		if name := search.Name; name != "" {
+			pattern := "%" + name + "%"
+			q = q.Where("name ILIKE ?", pattern)
+		}
 
-	if name := search.Name; name != "" {
-		pattern := "%" + name + "%"
-		query = query.Where("name ILIKE ?", pattern)
+		if sku := search.SKU; sku != "" {
+			pattern := "%" + sku + "%"
+			q = q.Where("sku ILIKE ?", pattern)
+		}
+
+		if orderExpr := r.sortItem(search.Sort); orderExpr != "" {
+			q = q.OrderExpr(orderExpr)
+		}
+
+		return q
 	}
 
-	if sku := search.SKU; sku != "" {
-		pattern := "%" + sku + "%"
-		query = query.Where("sku ILIKE ?", pattern)
-	}
-
-	if orderExpr := r.sortItem(search.Sort); orderExpr != "" {
-		query = query.OrderExpr(orderExpr)
-	}
-
-	count, err := query.Count(ctx)
+	count, err := r.base.Count(ctx, tx, applyFilter)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	err = query.Limit(search.Size).Offset(offset).Scan(ctx)
+	err = r.base.FindAll(ctx, tx, &items, func(q *bun.SelectQuery) *bun.SelectQuery {
+		return applyFilter(q).Limit(search.Size).Offset(offset)
+	})
 	if err != nil {
 		return nil, 0, err
 	}
 
-	return items, int64(count), nil
+	return items, count, nil
 }
 
 func (r *ItemRepository) sortItem(sort string) string {
