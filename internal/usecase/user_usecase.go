@@ -41,19 +41,19 @@ func NewUserUseCase(db *bun.DB, logger *logrus.Logger, validate *validator.Valid
 func (c *UserUseCase) Create(ctx context.Context, request *dto.RegisterUserRequest) (*dto.UserResponse, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
-		c.Log.Warnf("Failed to start transaction : %+v", err)
+		c.Log.WithError(err).Error("Failed to start transaction")
 		return nil, apperror.UserErrors.FailedToCreate
 	}
 	defer tx.Rollback()
 
 	if err := c.Validate.Struct(request); err != nil {
-		c.Log.Warnf("Invalid request body : %+v", err)
+		c.Log.WithError(err).Warn("Invalid request body")
 		return nil, apperror.UserErrors.InvalidRequest
 	}
 
 	password, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.Log.Warnf("Failed to generate bcrype hash : %+v", err)
+		c.Log.WithError(err).Error("Failed to generate bcrypt hash")
 		return nil, apperror.UserErrors.FailedToCreate
 	}
 
@@ -67,12 +67,12 @@ func (c *UserUseCase) Create(ctx context.Context, request *dto.RegisterUserReque
 	}
 
 	if err := c.UserRepository.Create(ctx, tx, user); err != nil {
-		c.Log.Warnf("Failed create user to database : %+v", err)
+		c.Log.WithError(err).Error("Failed to create user in database")
 		return nil, apperror.UserErrors.FailedToCreate
 	}
 
 	if err := tx.Commit(); err != nil {
-		c.Log.Warnf("Failed commit transaction : %+v", err)
+		c.Log.WithError(err).Error("Failed to commit transaction")
 		return nil, apperror.UserErrors.FailedToCreate
 	}
 
@@ -80,46 +80,30 @@ func (c *UserUseCase) Create(ctx context.Context, request *dto.RegisterUserReque
 }
 
 func (c *UserUseCase) Login(ctx context.Context, request *dto.LoginUserRequest) (*dto.UserResponse, error) {
-	tx, err := c.DB.BeginTx(ctx, nil)
-	if err != nil {
-		c.Log.Warnf("Failed to start transaction : %+v", err)
-		return nil, apperror.UserErrors.FailedToLogin
-	}
-	defer tx.Rollback()
-
 	if err := c.Validate.Struct(request); err != nil {
-		c.Log.Warnf("Invalid request body  : %+v", err)
+		c.Log.WithError(err).Warn("Invalid request body")
 		return nil, apperror.UserErrors.InvalidRequest
 	}
 
-	user, err := c.UserRepository.FindById(ctx, tx, request.ID)
+	// Read-only operation, no transaction needed
+	user, err := c.UserRepository.FindById(ctx, nil, request.ID)
 	if err != nil {
-		c.Log.Warnf("Failed find user by id : %+v", err)
+		c.Log.WithError(err).WithField("user_id", request.ID).Warn("Failed to find user by id")
 		return nil, apperror.UserErrors.Unauthorized
 	}
 	if user == nil {
-		c.Log.Warnf("User not found : %+v", request.ID)
+		c.Log.WithField("user_id", request.ID).Warn("User not found")
 		return nil, apperror.UserErrors.Unauthorized
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password)); err != nil {
-		c.Log.Warnf("Failed to compare user password with bcrype hash : %+v", err)
+		c.Log.WithError(err).Warn("Password mismatch")
 		return nil, apperror.UserErrors.Unauthorized
 	}
 
 	jwtToken, err := auth.GenerateToken(user.ID, c.JwtSecret, c.JwtTTL)
 	if err != nil {
-		c.Log.Warnf("Failed to generate JWT token : %+v", err)
-		return nil, apperror.UserErrors.FailedToLogin
-	}
-	user.UpdatedAt = time.Now().UnixMilli()
-	if err := c.UserRepository.Update(ctx, tx, user); err != nil {
-		c.Log.Warnf("Failed save user : %+v", err)
-		return nil, apperror.UserErrors.FailedToLogin
-	}
-
-	if err := tx.Commit(); err != nil {
-		c.Log.Warnf("Failed commit transaction : %+v", err)
+		c.Log.WithError(err).Error("Failed to generate JWT token")
 		return nil, apperror.UserErrors.FailedToLogin
 	}
 
@@ -127,104 +111,67 @@ func (c *UserUseCase) Login(ctx context.Context, request *dto.LoginUserRequest) 
 }
 
 func (c *UserUseCase) Current(ctx context.Context, request *dto.GetUserRequest) (*dto.UserResponse, error) {
-	tx, err := c.DB.BeginTx(ctx, nil)
-	if err != nil {
-		c.Log.Warnf("Failed to start transaction : %+v", err)
-		return nil, apperror.UserErrors.FailedToGet
-	}
-	defer tx.Rollback()
-
 	if err := c.Validate.Struct(request); err != nil {
-		c.Log.Warnf("Invalid request body : %+v", err)
+		c.Log.WithError(err).Warn("Invalid request body")
 		return nil, apperror.UserErrors.InvalidRequest
 	}
 
-	user, err := c.UserRepository.FindById(ctx, tx, request.ID)
+	// Read-only operation, no transaction needed
+	user, err := c.UserRepository.FindById(ctx, nil, request.ID)
 	if err != nil {
-		c.Log.Warnf("Failed find user by id : %+v", err)
+		c.Log.WithError(err).WithField("user_id", request.ID).Error("Failed to find user by id")
 		return nil, apperror.UserErrors.NotFound
 	}
 	if user == nil {
-		c.Log.Warnf("User not found : %+v", request.ID)
+		c.Log.WithField("user_id", request.ID).Warn("User not found")
 		return nil, apperror.UserErrors.NotFound
-	}
-
-	if err := tx.Commit(); err != nil {
-		c.Log.Warnf("Failed commit transaction : %+v", err)
-		return nil, apperror.UserErrors.FailedToGet
 	}
 
 	return converter.UserToResponse(user), nil
 }
 
 func (c *UserUseCase) Logout(ctx context.Context, request *dto.LogoutUserRequest) (bool, error) {
-	tx, err := c.DB.BeginTx(ctx, nil)
-	if err != nil {
-		c.Log.Warnf("Failed to start transaction : %+v", err)
-		return false, apperror.UserErrors.FailedToLogout
-	}
-	defer tx.Rollback()
-
 	if err := c.Validate.Struct(request); err != nil {
-		c.Log.Warnf("Invalid request body : %+v", err)
+		c.Log.WithError(err).Warn("Invalid request body")
 		return false, apperror.UserErrors.InvalidRequest
 	}
 
-	user, err := c.UserRepository.FindById(ctx, tx, request.ID)
-	if err != nil {
-		c.Log.Warnf("Failed find user by id : %+v", err)
-		return false, apperror.UserErrors.NotFound
-	}
-	if user == nil {
-		c.Log.Warnf("User not found : %+v", request.ID)
-		return false, apperror.UserErrors.NotFound
-	}
-
-	user.UpdatedAt = time.Now().UnixMilli()
-	if err := c.UserRepository.Update(ctx, tx, user); err != nil {
-		c.Log.Warnf("Failed save user : %+v", err)
-		return false, apperror.UserErrors.FailedToLogout
-	}
-
-	if err := tx.Commit(); err != nil {
-		c.Log.Warnf("Failed commit transaction : %+v", err)
-		return false, apperror.UserErrors.FailedToLogout
-	}
-
+	// JWT logout is client-side (token removal)
+	// No server-side state to update
+	c.Log.WithField("user_id", request.ID).Info("User logged out")
 	return true, nil
 }
 
 func (c *UserUseCase) Update(ctx context.Context, request *dto.UpdateUserRequest) (*dto.UserResponse, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
-		c.Log.Warnf("Failed to start transaction : %+v", err)
+		c.Log.WithError(err).Error("Failed to start transaction")
 		return nil, apperror.UserErrors.FailedToUpdate
 	}
 	defer tx.Rollback()
 
 	if err := c.Validate.Struct(request); err != nil {
-		c.Log.Warnf("Invalid request body : %+v", err)
+		c.Log.WithError(err).Warn("Invalid request body")
 		return nil, apperror.UserErrors.InvalidRequest
 	}
 
 	user, err := c.UserRepository.FindById(ctx, tx, request.ID)
 	if err != nil {
-		c.Log.Warnf("Failed find user by id : %+v", err)
+		c.Log.WithError(err).WithField("user_id", request.ID).Error("Failed to find user by id")
 		return nil, apperror.UserErrors.NotFound
 	}
 	if user == nil {
-		c.Log.Warnf("User not found : %+v", request.ID)
+		c.Log.WithField("user_id", request.ID).Warn("User not found")
 		return nil, apperror.UserErrors.NotFound
 	}
 
-	if request.Name != "" {
-		user.Name = request.Name
-	}
+	// Update fields - OmitZero in repository will handle partial updates
+	user.Name = request.Name
 
 	if request.Password != "" {
 		password, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
 		if err != nil {
-			c.Log.Warnf("Failed to generate bcrype hash : %+v", err)
+			c.Log.WithError(err).Error("Failed to generate bcrypt hash")
 			return nil, apperror.UserErrors.FailedToUpdate
 		}
 		user.Password = string(password)
@@ -232,12 +179,12 @@ func (c *UserUseCase) Update(ctx context.Context, request *dto.UpdateUserRequest
 
 	user.UpdatedAt = time.Now().UnixMilli()
 	if err := c.UserRepository.Update(ctx, tx, user); err != nil {
-		c.Log.Warnf("Failed save user : %+v", err)
+		c.Log.WithError(err).Error("Failed to update user")
 		return nil, apperror.UserErrors.FailedToUpdate
 	}
 
 	if err := tx.Commit(); err != nil {
-		c.Log.Warnf("Failed commit transaction : %+v", err)
+		c.Log.WithError(err).Error("Failed to commit transaction")
 		return nil, apperror.UserErrors.FailedToUpdate
 	}
 

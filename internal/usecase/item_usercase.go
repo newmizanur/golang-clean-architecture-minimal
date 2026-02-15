@@ -67,6 +67,7 @@ func (c *ItemUseCase) Create(ctx context.Context, request *dto.CreateItemRequest
 
 func (c *ItemUseCase) Search(ctx context.Context, request *dto.SearchItemRequest) ([]dto.CreateItemResponse, int64, error) {
 	var response []dto.CreateItemResponse
+	// Read-only operation, no transaction needed
 	items, total, err := c.ItemRepository.Search(ctx, nil, request)
 	if err != nil {
 		return response, 0, err
@@ -81,25 +82,14 @@ func (c *ItemUseCase) Search(ctx context.Context, request *dto.SearchItemRequest
 }
 
 func (c *ItemUseCase) Get(ctx context.Context, request *dto.GetItemRequest) (*dto.CreateItemResponse, error) {
-	tx, err := c.DB.BeginTx(ctx, nil)
-	if err != nil {
-		c.Log.WithError(err).Error("error starting transaction on get item")
-		return nil, apperror.ItemErrors.FailedToGet
-	}
-	defer tx.Rollback()
-
-	item, err := c.ItemRepository.Get(ctx, tx, request.ID)
+	// Read-only operation, no transaction needed
+	item, err := c.ItemRepository.Get(ctx, nil, request.ID)
 	if err != nil {
 		c.Log.WithError(err).Error("error getting item")
 		return nil, apperror.ItemErrors.FailedToGet
 	}
 	if item == nil {
 		return nil, apperror.ItemErrors.NotFound
-	}
-
-	if err := tx.Commit(); err != nil {
-		c.Log.WithError(err).Error("error commit transaction on get item")
-		return nil, apperror.ItemErrors.FailedToGet
 	}
 
 	return converter.ItemToResponse(item), nil
@@ -122,15 +112,10 @@ func (c *ItemUseCase) Update(ctx context.Context, request *dto.UpdateItemRequest
 		return nil, apperror.ItemErrors.NotFound
 	}
 
-	if request.Name != "" {
-		item.Name = request.Name
-	}
-	if request.SKU != "" {
-		item.Sku = request.SKU
-	}
-	if request.Currency != "" {
-		item.Currency = request.Currency
-	}
+	// Update fields - OmitZero in repository will handle partial updates
+	item.Name = request.Name
+	item.Sku = request.SKU
+	item.Currency = request.Currency
 	if request.Stock > 0 {
 		item.Stock = request.Stock
 	}

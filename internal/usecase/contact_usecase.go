@@ -113,19 +113,13 @@ func (c *ContactUseCase) Update(ctx context.Context, request *dto.UpdateContactR
 }
 
 func (c *ContactUseCase) Get(ctx context.Context, request *dto.GetContactRequest) (*dto.ContactResponse, error) {
-	tx, err := c.DB.BeginTx(ctx, nil)
-	if err != nil {
-		c.Log.WithError(err).Error("error starting transaction")
-		return nil, apperror.ContactErrors.FailedToGet
-	}
-	defer tx.Rollback()
-
 	if err := c.Validate.Struct(request); err != nil {
 		c.Log.WithError(err).Error("error validating request body")
 		return nil, apperror.ContactErrors.InvalidRequest
 	}
 
-	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, tx, request.ID, request.UserId)
+	// Read-only operation, no transaction needed
+	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, nil, request.ID, request.UserId)
 	if err != nil {
 		c.Log.WithError(err).Error("error getting contact")
 		return nil, apperror.ContactErrors.NotFound
@@ -133,11 +127,6 @@ func (c *ContactUseCase) Get(ctx context.Context, request *dto.GetContactRequest
 	if contact == nil {
 		c.Log.WithField("contact_id", request.ID).Warn("contact not found")
 		return nil, apperror.ContactErrors.NotFound
-	}
-
-	if err := tx.Commit(); err != nil {
-		c.Log.WithError(err).Error("error getting contact")
-		return nil, apperror.ContactErrors.FailedToGet
 	}
 
 	return converter.ContactToResponse(contact), nil
@@ -180,25 +169,14 @@ func (c *ContactUseCase) Delete(ctx context.Context, request *dto.DeleteContactR
 }
 
 func (c *ContactUseCase) Search(ctx context.Context, request *dto.SearchContactRequest) ([]dto.ContactResponse, int64, error) {
-	tx, err := c.DB.BeginTx(ctx, nil)
-	if err != nil {
-		c.Log.WithError(err).Error("error starting transaction")
-		return nil, 0, apperror.ContactErrors.FailedToSearch
-	}
-	defer tx.Rollback()
-
 	if err := c.Validate.Struct(request); err != nil {
 		c.Log.WithError(err).Error("error validating request body")
 		return nil, 0, apperror.ContactErrors.InvalidRequest
 	}
 
-	contacts, total, err := c.ContactRepository.Search(ctx, tx, request)
+	// Read-only operation, no transaction needed
+	contacts, total, err := c.ContactRepository.Search(ctx, nil, request)
 	if err != nil {
-		c.Log.WithError(err).Error("error getting contacts")
-		return nil, 0, apperror.ContactErrors.FailedToSearch
-	}
-
-	if err := tx.Commit(); err != nil {
 		c.Log.WithError(err).Error("error getting contacts")
 		return nil, 0, apperror.ContactErrors.FailedToSearch
 	}

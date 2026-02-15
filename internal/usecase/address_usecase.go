@@ -137,14 +137,8 @@ func (c *AddressUseCase) Update(ctx context.Context, request *dto.UpdateAddressR
 }
 
 func (c *AddressUseCase) Get(ctx context.Context, request *dto.GetAddressRequest) (*dto.AddressResponse, error) {
-	tx, err := c.DB.BeginTx(ctx, nil)
-	if err != nil {
-		c.Log.WithError(err).Error("failed to start transaction")
-		return nil, apperror.AddressErrors.FailedToGet
-	}
-	defer tx.Rollback()
-
-	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, tx, request.ContactId, request.UserId)
+	// Read-only operation, no transaction needed
+	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, nil, request.ContactId, request.UserId)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find contact")
 		return nil, apperror.AddressErrors.NotFound
@@ -154,7 +148,7 @@ func (c *AddressUseCase) Get(ctx context.Context, request *dto.GetAddressRequest
 		return nil, apperror.AddressErrors.NotFound
 	}
 
-	address, err := c.AddressRepository.FindByIdAndContactId(ctx, tx, request.ID, contact.ID)
+	address, err := c.AddressRepository.FindByIdAndContactId(ctx, nil, request.ID, contact.ID)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find address")
 		return nil, apperror.AddressErrors.NotFound
@@ -162,11 +156,6 @@ func (c *AddressUseCase) Get(ctx context.Context, request *dto.GetAddressRequest
 	if address == nil {
 		c.Log.WithField("address_id", request.ID).Warn("address not found")
 		return nil, apperror.AddressErrors.NotFound
-	}
-
-	if err := tx.Commit(); err != nil {
-		c.Log.WithError(err).Error("failed to commit transaction")
-		return nil, apperror.AddressErrors.FailedToGet
 	}
 
 	return converter.AddressToResponse(address), nil
@@ -214,14 +203,8 @@ func (c *AddressUseCase) Delete(ctx context.Context, request *dto.DeleteAddressR
 }
 
 func (c *AddressUseCase) List(ctx context.Context, request *dto.ListAddressRequest) ([]dto.AddressResponse, error) {
-	tx, err := c.DB.BeginTx(ctx, nil)
-	if err != nil {
-		c.Log.WithError(err).Error("failed to start transaction")
-		return nil, apperror.AddressErrors.FailedToList
-	}
-	defer tx.Rollback()
-
-	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, tx, request.ContactId, request.UserId)
+	// Read-only operation, no transaction needed
+	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, nil, request.ContactId, request.UserId)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find contact")
 		return nil, apperror.AddressErrors.NotFound
@@ -231,14 +214,9 @@ func (c *AddressUseCase) List(ctx context.Context, request *dto.ListAddressReque
 		return nil, apperror.AddressErrors.NotFound
 	}
 
-	addresses, err := c.AddressRepository.FindAllByContactId(ctx, tx, contact.ID)
+	addresses, err := c.AddressRepository.FindAllByContactId(ctx, nil, contact.ID)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find addresses")
-		return nil, apperror.AddressErrors.FailedToList
-	}
-
-	if err := tx.Commit(); err != nil {
-		c.Log.WithError(err).Error("failed to commit transaction")
 		return nil, apperror.AddressErrors.FailedToList
 	}
 

@@ -21,6 +21,11 @@ func (c *RouteConfig) Setup() {
 }
 
 func (c *RouteConfig) SetupGuestRoute() {
+	// Health check endpoint for load balancers/k8s
+	c.App.GET("/health", func(ctx echo.Context) error {
+		return ctx.JSON(200, map[string]string{"status": "ok"})
+	})
+
 	c.App.POST("/api/users", c.UserController.Register)
 	c.App.POST("/api/users/login", c.UserController.Login)
 }

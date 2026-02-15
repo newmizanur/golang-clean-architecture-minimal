@@ -2,7 +2,6 @@ package http
 
 import (
 	"golang-clean-architecture/internal/apperror"
-	"golang-clean-architecture/internal/delivery/http/middleware"
 	httpresponse "golang-clean-architecture/internal/delivery/http/response"
 	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/usecase"
@@ -26,8 +25,6 @@ func NewItemController(useCase *usecase.ItemUseCase, log *logrus.Logger) *ItemCo
 }
 
 func (c *ItemController) Create(ctx echo.Context) error {
-	_ = middleware.GetUser(ctx)
-
 	request := new(dto.CreateItemRequest)
 	if err := ctx.Bind(&request); err != nil {
 		c.Log.WithError(err).Error("error parsing request body")
@@ -44,8 +41,6 @@ func (c *ItemController) Create(ctx echo.Context) error {
 }
 
 func (c *ItemController) List(ctx echo.Context) error {
-	_ = middleware.GetUser(ctx)
-
 	request := &dto.SearchItemRequest{
 		Name: ctx.QueryParam("name"),
 		SKU:  ctx.QueryParam("sku"),
@@ -71,8 +66,6 @@ func (c *ItemController) List(ctx echo.Context) error {
 }
 
 func (c *ItemController) Get(ctx echo.Context) error {
-	_ = middleware.GetUser(ctx)
-
 	itemID, err := itemIDParam(ctx)
 	if err != nil {
 		return httpresponse.NewErrorBuilder(apperror.ItemErrors.InvalidRequest).Send(ctx)
@@ -89,8 +82,6 @@ func (c *ItemController) Get(ctx echo.Context) error {
 }
 
 func (c *ItemController) Update(ctx echo.Context) error {
-	_ = middleware.GetUser(ctx)
-
 	itemID, err := itemIDParam(ctx)
 	if err != nil {
 		return httpresponse.NewErrorBuilder(apperror.ItemErrors.InvalidRequest).Send(ctx)
@@ -113,8 +104,6 @@ func (c *ItemController) Update(ctx echo.Context) error {
 }
 
 func (c *ItemController) Delete(ctx echo.Context) error {
-	_ = middleware.GetUser(ctx)
-
 	itemID, err := itemIDParam(ctx)
 	if err != nil {
 		return httpresponse.NewErrorBuilder(apperror.ItemErrors.InvalidRequest).Send(ctx)
