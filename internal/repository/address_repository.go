@@ -59,19 +59,58 @@ func (r *AddressRepository) FindAllByContactId(ctx context.Context, tx bun.IDB, 
 
 func (r *AddressRepository) Create(ctx context.Context, tx bun.IDB, address *m.Addresses) error {
 	_, err := r.dbConn(tx).NewInsert().Model(address).Exec(ctx)
-	return err
+	if err != nil {
+		r.Log.WithError(err).WithField("address_id", address.ID).Error("Failed to create address")
+		return err
+	}
+	r.Log.WithField("address_id", address.ID).Info("Address created successfully")
+	return nil
 }
 
 func (r *AddressRepository) Update(ctx context.Context, tx bun.IDB, address *m.Addresses) error {
-	_, err := r.dbConn(tx).NewUpdate().
+	result, err := r.dbConn(tx).NewUpdate().
 		Model(address).
-		Column("street", "city", "province", "postal_code", "country", "updated_at").
+		OmitZero().
 		WherePK().
 		Exec(ctx)
-	return err
+	if err != nil {
+		r.Log.WithError(err).WithField("address_id", address.ID).Error("Failed to update address")
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		r.Log.WithError(err).Error("Failed to get rows affected")
+		return err
+	}
+
+	if rowsAffected == 0 {
+		r.Log.WithField("address_id", address.ID).Warn("No address updated - address not found")
+		return nil
+	}
+
+	r.Log.WithField("address_id", address.ID).Info("Address updated successfully")
+	return nil
 }
 
 func (r *AddressRepository) Delete(ctx context.Context, tx bun.IDB, address *m.Addresses) error {
-	_, err := r.dbConn(tx).NewDelete().Model(address).WherePK().Exec(ctx)
-	return err
+	result, err := r.dbConn(tx).NewDelete().Model(address).WherePK().Exec(ctx)
+	if err != nil {
+		r.Log.WithError(err).WithField("address_id", address.ID).Error("Failed to delete address")
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		r.Log.WithError(err).Error("Failed to get rows affected")
+		return err
+	}
+
+	if rowsAffected == 0 {
+		r.Log.WithField("address_id", address.ID).Warn("No address deleted - address not found")
+		return nil
+	}
+
+	r.Log.WithField("address_id", address.ID).Info("Address deleted successfully")
+	return nil
 }

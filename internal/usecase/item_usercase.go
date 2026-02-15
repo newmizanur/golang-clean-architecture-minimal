@@ -168,7 +168,7 @@ func (c *ItemUseCase) Delete(ctx context.Context, request *dto.DeleteItemRequest
 		return apperror.ItemErrors.NotFound
 	}
 
-	if err := c.ItemRepository.Delete(ctx, tx, request.ID); err != nil {
+	if err := c.ItemRepository.Delete(ctx, tx, item); err != nil {
 		c.Log.WithError(err).Error("error deleting item")
 		return apperror.ItemErrors.FailedToDelete
 	}

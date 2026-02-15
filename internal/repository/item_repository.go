@@ -33,18 +33,37 @@ func (r *ItemRepository) dbConn(tx bun.IDB) bun.IDB {
 func (r *ItemRepository) Create(ctx context.Context, tx bun.IDB, item *m.Items) (int64, error) {
 	_, err := r.dbConn(tx).NewInsert().Model(item).Returning("id").Exec(ctx)
 	if err != nil {
+		r.Log.WithError(err).Error("Failed to create item")
 		return 0, err
 	}
+	r.Log.WithField("item_id", item.ID).Info("Item created successfully")
 	return item.ID, nil
 }
 
 func (r *ItemRepository) Update(ctx context.Context, tx bun.IDB, item *m.Items) error {
-	_, err := r.dbConn(tx).NewUpdate().
+	result, err := r.dbConn(tx).NewUpdate().
 		Model(item).
-		Column("name", "sku", "currency", "stock", "updated_at").
+		OmitZero().
 		WherePK().
 		Exec(ctx)
-	return err
+	if err != nil {
+		r.Log.WithError(err).WithField("item_id", item.ID).Error("Failed to update item")
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		r.Log.WithError(err).Error("Failed to get rows affected")
+		return err
+	}
+
+	if rowsAffected == 0 {
+		r.Log.WithField("item_id", item.ID).Warn("No item updated - item not found")
+		return nil
+	}
+
+	r.Log.WithField("item_id", item.ID).Info("Item updated successfully")
+	return nil
 }
 
 func (r *ItemRepository) Get(ctx context.Context, tx bun.IDB, id int64) (*m.Items, error) {
@@ -63,16 +82,39 @@ func (r *ItemRepository) Get(ctx context.Context, tx bun.IDB, id int64) (*m.Item
 	return item, nil
 }
 
-func (r *ItemRepository) Delete(ctx context.Context, tx bun.IDB, id int64) error {
-	_, err := r.dbConn(tx).NewDelete().
-		Model((*m.Items)(nil)).
-		Where("id = ?", id).
-		Exec(ctx)
-	return err
+func (r *ItemRepository) Delete(ctx context.Context, tx bun.IDB, item *m.Items) error {
+	result, err := r.dbConn(tx).NewDelete().Model(item).WherePK().Exec(ctx)
+	if err != nil {
+		r.Log.WithError(err).WithField("item_id", item.ID).Error("Failed to delete item")
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		r.Log.WithError(err).Error("Failed to get rows affected")
+		return err
+	}
+
+	if rowsAffected == 0 {
+		r.Log.WithField("item_id", item.ID).Warn("No item deleted - item not found")
+		return nil
+	}
+
+	r.Log.WithField("item_id", item.ID).Info("Item deleted successfully")
+	return nil
 }
 
 func (r *ItemRepository) Search(ctx context.Context, tx bun.IDB, search *dto.SearchItemRequest) ([]m.Items, int64, error) {
 	var items []m.Items
+
+	// Validate pagination parameters
+	if search.Page < 1 {
+		search.Page = 1
+	}
+	if search.Size < 1 {
+		search.Size = 10
+	}
+
 	offset := (search.Page - 1) * search.Size
 
 	query := r.dbConn(tx).NewSelect().Model(&items)
@@ -93,11 +135,13 @@ func (r *ItemRepository) Search(ctx context.Context, tx bun.IDB, search *dto.Sea
 
 	count, err := query.Count(ctx)
 	if err != nil {
+		r.Log.WithError(err).Error("Failed to count items")
 		return nil, 0, err
 	}
 
 	err = query.Limit(search.Size).Offset(offset).Scan(ctx)
 	if err != nil {
+		r.Log.WithError(err).Error("Failed to search items")
 		return nil, 0, err
 	}
 

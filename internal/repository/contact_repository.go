@@ -48,6 +48,15 @@ func (r *ContactRepository) FindByIdAndUserId(ctx context.Context, tx bun.IDB, i
 
 func (r *ContactRepository) Search(ctx context.Context, tx bun.IDB, request *dto.SearchContactRequest) ([]m.Contacts, int64, error) {
 	var contacts []m.Contacts
+
+	// Validate pagination parameters
+	if request.Page < 1 {
+		request.Page = 1
+	}
+	if request.Size < 1 {
+		request.Size = 10
+	}
+
 	offset := (request.Page - 1) * request.Size
 
 	query := r.dbConn(tx).NewSelect().
@@ -71,11 +80,13 @@ func (r *ContactRepository) Search(ctx context.Context, tx bun.IDB, request *dto
 
 	count, err := query.Count(ctx)
 	if err != nil {
+		r.Log.WithError(err).Error("Failed to count contacts")
 		return nil, 0, err
 	}
 
 	err = query.Limit(request.Size).Offset(offset).Scan(ctx)
 	if err != nil {
+		r.Log.WithError(err).Error("Failed to search contacts")
 		return nil, 0, err
 	}
 
@@ -84,19 +95,58 @@ func (r *ContactRepository) Search(ctx context.Context, tx bun.IDB, request *dto
 
 func (r *ContactRepository) Create(ctx context.Context, tx bun.IDB, contact *m.Contacts) error {
 	_, err := r.dbConn(tx).NewInsert().Model(contact).Exec(ctx)
-	return err
+	if err != nil {
+		r.Log.WithError(err).WithField("contact_id", contact.ID).Error("Failed to create contact")
+		return err
+	}
+	r.Log.WithField("contact_id", contact.ID).Info("Contact created successfully")
+	return nil
 }
 
 func (r *ContactRepository) Update(ctx context.Context, tx bun.IDB, contact *m.Contacts) error {
-	_, err := r.dbConn(tx).NewUpdate().
+	result, err := r.dbConn(tx).NewUpdate().
 		Model(contact).
-		Column("first_name", "last_name", "email", "phone", "updated_at").
+		OmitZero().
 		WherePK().
 		Exec(ctx)
-	return err
+	if err != nil {
+		r.Log.WithError(err).WithField("contact_id", contact.ID).Error("Failed to update contact")
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		r.Log.WithError(err).Error("Failed to get rows affected")
+		return err
+	}
+
+	if rowsAffected == 0 {
+		r.Log.WithField("contact_id", contact.ID).Warn("No contact updated - contact not found")
+		return nil
+	}
+
+	r.Log.WithField("contact_id", contact.ID).Info("Contact updated successfully")
+	return nil
 }
 
 func (r *ContactRepository) Delete(ctx context.Context, tx bun.IDB, contact *m.Contacts) error {
-	_, err := r.dbConn(tx).NewDelete().Model(contact).WherePK().Exec(ctx)
-	return err
+	result, err := r.dbConn(tx).NewDelete().Model(contact).WherePK().Exec(ctx)
+	if err != nil {
+		r.Log.WithError(err).WithField("contact_id", contact.ID).Error("Failed to delete contact")
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		r.Log.WithError(err).Error("Failed to get rows affected")
+		return err
+	}
+
+	if rowsAffected == 0 {
+		r.Log.WithField("contact_id", contact.ID).Warn("No contact deleted - contact not found")
+		return nil
+	}
+
+	r.Log.WithField("contact_id", contact.ID).Info("Contact deleted successfully")
+	return nil
 }

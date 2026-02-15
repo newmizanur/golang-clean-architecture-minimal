@@ -54,19 +54,58 @@ func (r *UserRepository) FindById(ctx context.Context, tx bun.IDB, id string) (*
 
 func (r *UserRepository) Create(ctx context.Context, tx bun.IDB, user *m.Users) error {
 	_, err := r.dbConn(tx).NewInsert().Model(user).Exec(ctx)
-	return err
+	if err != nil {
+		r.Log.WithError(err).WithField("user_id", user.ID).Error("Failed to create user")
+		return err
+	}
+	r.Log.WithField("user_id", user.ID).Info("User created successfully")
+	return nil
 }
 
 func (r *UserRepository) Update(ctx context.Context, tx bun.IDB, user *m.Users) error {
-	_, err := r.dbConn(tx).NewUpdate().
+	result, err := r.dbConn(tx).NewUpdate().
 		Model(user).
-		Column("password", "name", "updated_at").
+		OmitZero().
 		WherePK().
 		Exec(ctx)
-	return err
+	if err != nil {
+		r.Log.WithError(err).WithField("user_id", user.ID).Error("Failed to update user")
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		r.Log.WithError(err).Error("Failed to get rows affected")
+		return err
+	}
+
+	if rowsAffected == 0 {
+		r.Log.WithField("user_id", user.ID).Warn("No user updated - user not found")
+		return nil
+	}
+
+	r.Log.WithField("user_id", user.ID).Info("User updated successfully")
+	return nil
 }
 
 func (r *UserRepository) Delete(ctx context.Context, tx bun.IDB, user *m.Users) error {
-	_, err := r.dbConn(tx).NewDelete().Model(user).WherePK().Exec(ctx)
-	return err
+	result, err := r.dbConn(tx).NewDelete().Model(user).WherePK().Exec(ctx)
+	if err != nil {
+		r.Log.WithError(err).WithField("user_id", user.ID).Error("Failed to delete user")
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		r.Log.WithError(err).Error("Failed to get rows affected")
+		return err
+	}
+
+	if rowsAffected == 0 {
+		r.Log.WithField("user_id", user.ID).Warn("No user deleted - user not found")
+		return nil
+	}
+
+	r.Log.WithField("user_id", user.ID).Info("User deleted successfully")
+	return nil
 }
