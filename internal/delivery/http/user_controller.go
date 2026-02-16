@@ -56,7 +56,10 @@ func (c *UserController) Login(ctx echo.Context) error {
 }
 
 func (c *UserController) Current(ctx echo.Context) error {
-	auth := middleware.GetUser(ctx)
+	auth, ok := middleware.GetUser(ctx)
+	if !ok {
+		return httpresponse.NewErrorBuilder(apperror.AuthErrors.Unauthorized).Send(ctx)
+	}
 
 	request := &dto.GetUserRequest{
 		ID: auth.ID,
@@ -72,7 +75,10 @@ func (c *UserController) Current(ctx echo.Context) error {
 }
 
 func (c *UserController) Logout(ctx echo.Context) error {
-	auth := middleware.GetUser(ctx)
+	auth, ok := middleware.GetUser(ctx)
+	if !ok {
+		return httpresponse.NewErrorBuilder(apperror.AuthErrors.Unauthorized).Send(ctx)
+	}
 
 	request := &dto.LogoutUserRequest{
 		ID: auth.ID,
@@ -88,7 +94,10 @@ func (c *UserController) Logout(ctx echo.Context) error {
 }
 
 func (c *UserController) Update(ctx echo.Context) error {
-	auth := middleware.GetUser(ctx)
+	auth, ok := middleware.GetUser(ctx)
+	if !ok {
+		return httpresponse.NewErrorBuilder(apperror.AuthErrors.Unauthorized).Send(ctx)
+	}
 
 	request := new(dto.UpdateUserRequest)
 	if err := ctx.Bind(request); err != nil {

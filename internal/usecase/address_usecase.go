@@ -6,7 +6,6 @@ import (
 	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/dto/converter"
 	m "golang-clean-architecture/internal/persistence/model"
-	"golang-clean-architecture/internal/repository"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -19,12 +18,12 @@ type AddressUseCase struct {
 	DB                *bun.DB
 	Log               *logrus.Logger
 	Validate          *validator.Validate
-	AddressRepository *repository.AddressRepository
-	ContactRepository *repository.ContactRepository
+	AddressRepository AddressRepositoryPort
+	ContactRepository ContactRepositoryPort
 }
 
 func NewAddressUseCase(db *bun.DB, logger *logrus.Logger, validate *validator.Validate,
-	contactRepository *repository.ContactRepository, addressRepository *repository.AddressRepository) *AddressUseCase {
+	contactRepository ContactRepositoryPort, addressRepository AddressRepositoryPort) *AddressUseCase {
 	return &AddressUseCase{
 		DB:                db,
 		Log:               logger,

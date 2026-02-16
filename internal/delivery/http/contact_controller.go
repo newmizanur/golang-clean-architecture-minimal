@@ -7,7 +7,6 @@ import (
 	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/usecase"
 	"math"
-	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
@@ -26,7 +25,10 @@ func NewContactController(useCase *usecase.ContactUseCase, log *logrus.Logger) *
 }
 
 func (c *ContactController) Create(ctx echo.Context) error {
-	auth := middleware.GetUser(ctx)
+	auth, ok := middleware.GetUser(ctx)
+	if !ok {
+		return httpresponse.NewErrorBuilder(apperror.AuthErrors.Unauthorized).Send(ctx)
+	}
 
 	request := new(dto.CreateContactRequest)
 	if err := ctx.Bind(request); err != nil {
@@ -45,15 +47,18 @@ func (c *ContactController) Create(ctx echo.Context) error {
 }
 
 func (c *ContactController) List(ctx echo.Context) error {
-	auth := middleware.GetUser(ctx)
+	auth, ok := middleware.GetUser(ctx)
+	if !ok {
+		return httpresponse.NewErrorBuilder(apperror.AuthErrors.Unauthorized).Send(ctx)
+	}
 
 	request := &dto.SearchContactRequest{
 		UserId: auth.ID,
 		Name:   ctx.QueryParam("name"),
 		Email:  ctx.QueryParam("email"),
 		Phone:  ctx.QueryParam("phone"),
-		Page:   intParam(ctx, "page", 1),
-		Size:   intParam(ctx, "size", 10),
+		Page:   IntParam(ctx, "page", 1),
+		Size:   IntParam(ctx, "size", 10),
 	}
 
 	responses, total, err := c.UseCase.Search(ctx.Request().Context(), request)
@@ -73,7 +78,10 @@ func (c *ContactController) List(ctx echo.Context) error {
 }
 
 func (c *ContactController) Get(ctx echo.Context) error {
-	auth := middleware.GetUser(ctx)
+	auth, ok := middleware.GetUser(ctx)
+	if !ok {
+		return httpresponse.NewErrorBuilder(apperror.AuthErrors.Unauthorized).Send(ctx)
+	}
 
 	request := &dto.GetContactRequest{
 		UserId: auth.ID,
@@ -90,7 +98,10 @@ func (c *ContactController) Get(ctx echo.Context) error {
 }
 
 func (c *ContactController) Update(ctx echo.Context) error {
-	auth := middleware.GetUser(ctx)
+	auth, ok := middleware.GetUser(ctx)
+	if !ok {
+		return httpresponse.NewErrorBuilder(apperror.AuthErrors.Unauthorized).Send(ctx)
+	}
 
 	request := new(dto.UpdateContactRequest)
 	if err := ctx.Bind(request); err != nil {
@@ -111,7 +122,10 @@ func (c *ContactController) Update(ctx echo.Context) error {
 }
 
 func (c *ContactController) Delete(ctx echo.Context) error {
-	auth := middleware.GetUser(ctx)
+	auth, ok := middleware.GetUser(ctx)
+	if !ok {
+		return httpresponse.NewErrorBuilder(apperror.AuthErrors.Unauthorized).Send(ctx)
+	}
 	contactId := ctx.Param("contactId")
 
 	request := &dto.DeleteContactRequest{
@@ -125,12 +139,4 @@ func (c *ContactController) Delete(ctx echo.Context) error {
 	}
 
 	return httpresponse.SuccessBuilder(true).Send(ctx)
-}
-
-func intParam(ctx echo.Context, key string, fallback int) int {
-	value, err := strconv.Atoi(ctx.QueryParam(key))
-	if err != nil {
-		return fallback
-	}
-	return value
 }

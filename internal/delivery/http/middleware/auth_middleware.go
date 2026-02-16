@@ -35,6 +35,13 @@ func NewAuth(jwtSecret string) echo.MiddlewareFunc {
 	}
 }
 
-func GetUser(ctx echo.Context) *dto.Auth {
-	return ctx.Get("auth").(*dto.Auth)
+// GetUser returns the authenticated user from context.
+// The second return is false if the auth middleware did not set the user (e.g. route not protected).
+func GetUser(ctx echo.Context) (*dto.Auth, bool) {
+	v := ctx.Get("auth")
+	if v == nil {
+		return nil, false
+	}
+	auth, ok := v.(*dto.Auth)
+	return auth, ok
 }

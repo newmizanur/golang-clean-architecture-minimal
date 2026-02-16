@@ -6,7 +6,6 @@ import (
 	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/dto/converter"
 	m "golang-clean-architecture/internal/persistence/model"
-	"golang-clean-architecture/internal/repository"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -19,11 +18,11 @@ type ContactUseCase struct {
 	DB                *bun.DB
 	Log               *logrus.Logger
 	Validate          *validator.Validate
-	ContactRepository *repository.ContactRepository
+	ContactRepository ContactRepositoryPort
 }
 
 func NewContactUseCase(db *bun.DB, logger *logrus.Logger, validate *validator.Validate,
-	contactRepository *repository.ContactRepository) *ContactUseCase {
+	contactRepository ContactRepositoryPort) *ContactUseCase {
 	return &ContactUseCase{
 		DB:                db,
 		Log:               logger,
@@ -47,7 +46,7 @@ func (c *ContactUseCase) Create(ctx context.Context, request *dto.CreateContactR
 
 	now := time.Now().UnixMilli()
 	contact := &m.Contacts{
-		ID:        uuid.New().String(),
+		ID:        uuid.NewString(),
 		FirstName: request.FirstName,
 		LastName:  stringPtrOrNil(request.LastName),
 		Email:     stringPtrOrNil(request.Email),

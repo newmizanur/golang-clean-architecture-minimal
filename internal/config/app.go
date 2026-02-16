@@ -44,7 +44,7 @@ func Bootstrap(config *BootstrapConfig) {
 	)
 	contactUseCase := usecase.NewContactUseCase(config.DB, config.Log, config.Validate, contactRepository)
 	addressUseCase := usecase.NewAddressUseCase(config.DB, config.Log, config.Validate, contactRepository, addressRepository)
-	itemUseCase := usecase.NewItemUseCase(config.DB, config.Log, itemRepository)
+	itemUseCase := usecase.NewItemUseCase(config.DB, config.Log, config.Validate, itemRepository)
 
 	// setup controller
 	userController := http.NewUserController(userUseCase, config.Log)

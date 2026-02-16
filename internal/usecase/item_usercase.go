@@ -8,8 +8,8 @@ import (
 	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/dto/converter"
 	m "golang-clean-architecture/internal/persistence/model"
-	"golang-clean-architecture/internal/repository"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
 	"github.com/uptrace/bun"
 )
@@ -17,18 +17,25 @@ import (
 type ItemUseCase struct {
 	DB             *bun.DB
 	Log            *logrus.Logger
-	ItemRepository *repository.ItemRepository
+	Validate       *validator.Validate
+	ItemRepository ItemRepositoryPort
 }
 
-func NewItemUseCase(db *bun.DB, log *logrus.Logger, repository *repository.ItemRepository) *ItemUseCase {
+func NewItemUseCase(db *bun.DB, log *logrus.Logger, validate *validator.Validate, repo ItemRepositoryPort) *ItemUseCase {
 	return &ItemUseCase{
 		DB:             db,
 		Log:            log,
-		ItemRepository: repository,
+		Validate:       validate,
+		ItemRepository: repo,
 	}
 }
 
 func (c *ItemUseCase) Create(ctx context.Context, request *dto.CreateItemRequest) (*dto.CreateItemResponse, error) {
+	if err := c.Validate.Struct(request); err != nil {
+		c.Log.WithError(err).Warn("invalid request body")
+		return nil, apperror.ItemErrors.InvalidRequest
+	}
+
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.WithError(err).Error("error on starting transaction at item usecase")
@@ -51,18 +58,14 @@ func (c *ItemUseCase) Create(ctx context.Context, request *dto.CreateItemRequest
 		c.Log.WithError(err).Error("error on creating item")
 		return nil, apperror.ItemErrors.FailedToCreateItem
 	}
-
-	it, err := c.ItemRepository.Get(ctx, tx, id)
-	if err != nil {
-		c.Log.WithError(err).Error("error on get item")
-	}
+	item.ID = id
 
 	if err := tx.Commit(); err != nil {
 		c.Log.WithError(err).Error("error creating item")
 		return nil, apperror.ItemErrors.FailedToCreateItem
 	}
 
-	return converter.ItemToResponse(it), nil
+	return converter.ItemToResponse(&item), nil
 }
 
 func (c *ItemUseCase) Search(ctx context.Context, request *dto.SearchItemRequest) ([]dto.CreateItemResponse, int64, error) {
@@ -83,7 +86,7 @@ func (c *ItemUseCase) Search(ctx context.Context, request *dto.SearchItemRequest
 
 func (c *ItemUseCase) Get(ctx context.Context, request *dto.GetItemRequest) (*dto.CreateItemResponse, error) {
 	// Read-only operation, no transaction needed
-	item, err := c.ItemRepository.Get(ctx, nil, request.ID)
+	item, err := c.ItemRepository.FindById(ctx, nil, request.ID)
 	if err != nil {
 		c.Log.WithError(err).Error("error getting item")
 		return nil, apperror.ItemErrors.FailedToGet
@@ -96,6 +99,11 @@ func (c *ItemUseCase) Get(ctx context.Context, request *dto.GetItemRequest) (*dt
 }
 
 func (c *ItemUseCase) Update(ctx context.Context, request *dto.UpdateItemRequest) (*dto.CreateItemResponse, error) {
+	if err := c.Validate.Struct(request); err != nil {
+		c.Log.WithError(err).Warn("invalid request body")
+		return nil, apperror.ItemErrors.InvalidRequest
+	}
+
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.WithError(err).Error("error starting transaction on update item")
@@ -103,7 +111,7 @@ func (c *ItemUseCase) Update(ctx context.Context, request *dto.UpdateItemRequest
 	}
 	defer tx.Rollback()
 
-	item, err := c.ItemRepository.Get(ctx, tx, request.ID)
+	item, err := c.ItemRepository.FindById(ctx, tx, request.ID)
 	if err != nil {
 		c.Log.WithError(err).Error("error getting item")
 		return nil, apperror.ItemErrors.FailedToUpdate
@@ -116,7 +124,7 @@ func (c *ItemUseCase) Update(ctx context.Context, request *dto.UpdateItemRequest
 	item.Name = request.Name
 	item.Sku = request.SKU
 	item.Currency = request.Currency
-	if request.Stock > 0 {
+	if request.Stock >= 0 {
 		item.Stock = request.Stock
 	}
 
@@ -144,7 +152,7 @@ func (c *ItemUseCase) Delete(ctx context.Context, request *dto.DeleteItemRequest
 	}
 	defer tx.Rollback()
 
-	item, err := c.ItemRepository.Get(ctx, tx, request.ID)
+	item, err := c.ItemRepository.FindById(ctx, tx, request.ID)
 	if err != nil {
 		c.Log.WithError(err).Error("error getting item")
 		return apperror.ItemErrors.FailedToDelete

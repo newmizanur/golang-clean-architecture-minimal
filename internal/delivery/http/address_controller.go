@@ -24,7 +24,10 @@ func NewAddressController(useCase *usecase.AddressUseCase, log *logrus.Logger) *
 }
 
 func (c *AddressController) Create(ctx echo.Context) error {
-	auth := middleware.GetUser(ctx)
+	auth, ok := middleware.GetUser(ctx)
+	if !ok {
+		return httpresponse.NewErrorBuilder(apperror.AuthErrors.Unauthorized).Send(ctx)
+	}
 
 	request := new(dto.CreateAddressRequest)
 	if err := ctx.Bind(request); err != nil {
@@ -45,7 +48,10 @@ func (c *AddressController) Create(ctx echo.Context) error {
 }
 
 func (c *AddressController) List(ctx echo.Context) error {
-	auth := middleware.GetUser(ctx)
+	auth, ok := middleware.GetUser(ctx)
+	if !ok {
+		return httpresponse.NewErrorBuilder(apperror.AuthErrors.Unauthorized).Send(ctx)
+	}
 	contactId := ctx.Param("contactId")
 
 	request := &dto.ListAddressRequest{
@@ -63,7 +69,10 @@ func (c *AddressController) List(ctx echo.Context) error {
 }
 
 func (c *AddressController) Get(ctx echo.Context) error {
-	auth := middleware.GetUser(ctx)
+	auth, ok := middleware.GetUser(ctx)
+	if !ok {
+		return httpresponse.NewErrorBuilder(apperror.AuthErrors.Unauthorized).Send(ctx)
+	}
 	contactId := ctx.Param("contactId")
 	addressId := ctx.Param("addressId")
 
@@ -83,7 +92,10 @@ func (c *AddressController) Get(ctx echo.Context) error {
 }
 
 func (c *AddressController) Update(ctx echo.Context) error {
-	auth := middleware.GetUser(ctx)
+	auth, ok := middleware.GetUser(ctx)
+	if !ok {
+		return httpresponse.NewErrorBuilder(apperror.AuthErrors.Unauthorized).Send(ctx)
+	}
 
 	request := new(dto.UpdateAddressRequest)
 	if err := ctx.Bind(request); err != nil {
@@ -105,7 +117,10 @@ func (c *AddressController) Update(ctx echo.Context) error {
 }
 
 func (c *AddressController) Delete(ctx echo.Context) error {
-	auth := middleware.GetUser(ctx)
+	auth, ok := middleware.GetUser(ctx)
+	if !ok {
+		return httpresponse.NewErrorBuilder(apperror.AuthErrors.Unauthorized).Send(ctx)
+	}
 	contactId := ctx.Param("contactId")
 	addressId := ctx.Param("addressId")
 

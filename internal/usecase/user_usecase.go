@@ -7,7 +7,6 @@ import (
 	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/dto/converter"
 	m "golang-clean-architecture/internal/persistence/model"
-	"golang-clean-architecture/internal/repository"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -21,13 +20,13 @@ type UserUseCase struct {
 	DB             *bun.DB
 	Log            *logrus.Logger
 	Validate       *validator.Validate
-	UserRepository *repository.UserRepository
+	UserRepository UserRepositoryPort
 	JwtSecret      string
 	JwtTTL         time.Duration
 }
 
 func NewUserUseCase(db *bun.DB, logger *logrus.Logger, validate *validator.Validate,
-	userRepository *repository.UserRepository, jwtSecret string, jwtTTL time.Duration) *UserUseCase {
+	userRepository UserRepositoryPort, jwtSecret string, jwtTTL time.Duration) *UserUseCase {
 	return &UserUseCase{
 		DB:             db,
 		Log:            logger,

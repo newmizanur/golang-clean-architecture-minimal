@@ -45,8 +45,8 @@ func (c *ItemController) List(ctx echo.Context) error {
 		Name: ctx.QueryParam("name"),
 		SKU:  ctx.QueryParam("sku"),
 		Sort: ctx.QueryParam("sort"),
-		Page: intParam(ctx, "page", 1),
-		Size: intParam(ctx, "size", 10),
+		Page: IntParam(ctx, "page", 1),
+		Size: IntParam(ctx, "size", 10),
 	}
 
 	response, total, err := c.ItemUseCase.Search(ctx.Request().Context(), request)

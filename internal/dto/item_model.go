@@ -35,7 +35,7 @@ type UpdateItemRequest struct {
 	Name     string `json:"name" validate:"max=255"`
 	SKU      string `json:"sku" validate:"max=100"`
 	Currency string `json:"currency" validate:"max=10"`
-	Stock    int32  `json:"stock" validate:"min=1"`
+	Stock    int32  `json:"stock" validate:"min=0"`
 }
 
 type DeleteItemRequest struct {

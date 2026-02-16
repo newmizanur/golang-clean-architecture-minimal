@@ -66,7 +66,7 @@ func (r *ItemRepository) Update(ctx context.Context, tx bun.IDB, item *m.Items) 
 	return nil
 }
 
-func (r *ItemRepository) Get(ctx context.Context, tx bun.IDB, id int64) (*m.Items, error) {
+func (r *ItemRepository) FindById(ctx context.Context, tx bun.IDB, id int64) (*m.Items, error) {
 	item := new(m.Items)
 	err := r.dbConn(tx).NewSelect().
 		Model(item).
