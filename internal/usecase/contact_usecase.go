@@ -45,7 +45,7 @@ func (c *ContactUseCase) Create(ctx context.Context, request *dto.CreateContactR
 	}
 
 	now := time.Now().UnixMilli()
-	contact := &m.Contacts{
+	contact := &m.Contact{
 		ID:        uuid.NewString(),
 		FirstName: request.FirstName,
 		LastName:  stringPtrOrNil(request.LastName),

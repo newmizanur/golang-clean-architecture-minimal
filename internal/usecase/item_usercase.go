@@ -44,7 +44,7 @@ func (c *ItemUseCase) Create(ctx context.Context, request *dto.CreateItemRequest
 	defer tx.Rollback()
 
 	now := time.Now()
-	item := m.Items{
+	item := m.Item{
 		Name:      request.Name,
 		Sku:       request.SKU,
 		Currency:  request.Currency,

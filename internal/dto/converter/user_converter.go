@@ -5,7 +5,7 @@ import (
 	dbmodel "golang-clean-architecture/internal/persistence/model"
 )
 
-func UserToResponse(user *dbmodel.Users) *dto.UserResponse {
+func UserToResponse(user *dbmodel.User) *dto.UserResponse {
 	return &dto.UserResponse{
 		ID:        user.ID,
 		Name:      user.Name,

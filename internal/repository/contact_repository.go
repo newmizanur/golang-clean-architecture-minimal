@@ -29,8 +29,8 @@ func (r *ContactRepository) dbConn(tx bun.IDB) bun.IDB {
 	return r.DB
 }
 
-func (r *ContactRepository) FindByIdAndUserId(ctx context.Context, tx bun.IDB, id string, userId string) (*m.Contacts, error) {
-	contact := new(m.Contacts)
+func (r *ContactRepository) FindByIdAndUserId(ctx context.Context, tx bun.IDB, id string, userId string) (*m.Contact, error) {
+	contact := new(m.Contact)
 	err := r.dbConn(tx).NewSelect().
 		Model(contact).
 		Where("id = ?", id).
@@ -46,8 +46,8 @@ func (r *ContactRepository) FindByIdAndUserId(ctx context.Context, tx bun.IDB, i
 	return contact, nil
 }
 
-func (r *ContactRepository) Search(ctx context.Context, tx bun.IDB, request *dto.SearchContactRequest) ([]m.Contacts, int64, error) {
-	var contacts []m.Contacts
+func (r *ContactRepository) Search(ctx context.Context, tx bun.IDB, request *dto.SearchContactRequest) ([]m.Contact, int64, error) {
+	var contacts []m.Contact
 
 	// Validate pagination parameters
 	if request.Page < 1 {
@@ -93,17 +93,17 @@ func (r *ContactRepository) Search(ctx context.Context, tx bun.IDB, request *dto
 	return contacts, int64(count), nil
 }
 
-func (r *ContactRepository) Create(ctx context.Context, tx bun.IDB, contact *m.Contacts) error {
+func (r *ContactRepository) Create(ctx context.Context, tx bun.IDB, contact *m.Contact) error {
 	_, err := r.dbConn(tx).NewInsert().Model(contact).Exec(ctx)
 	if err != nil {
 		r.Log.WithError(err).WithField("contact_id", contact.ID).Error("Failed to create contact")
 		return err
 	}
-	r.Log.WithField("contact_id", contact.ID).Info("Contact created successfully")
+	r.Log.WithField("contact_id", contact.ID).Debug("Contact created successfully")
 	return nil
 }
 
-func (r *ContactRepository) Update(ctx context.Context, tx bun.IDB, contact *m.Contacts) error {
+func (r *ContactRepository) Update(ctx context.Context, tx bun.IDB, contact *m.Contact) error {
 	result, err := r.dbConn(tx).NewUpdate().
 		Model(contact).
 		OmitZero().
@@ -125,11 +125,11 @@ func (r *ContactRepository) Update(ctx context.Context, tx bun.IDB, contact *m.C
 		return nil
 	}
 
-	r.Log.WithField("contact_id", contact.ID).Info("Contact updated successfully")
+	r.Log.WithField("contact_id", contact.ID).Debug("Contact updated successfully")
 	return nil
 }
 
-func (r *ContactRepository) Delete(ctx context.Context, tx bun.IDB, contact *m.Contacts) error {
+func (r *ContactRepository) Delete(ctx context.Context, tx bun.IDB, contact *m.Contact) error {
 	result, err := r.dbConn(tx).NewDelete().Model(contact).WherePK().Exec(ctx)
 	if err != nil {
 		r.Log.WithError(err).WithField("contact_id", contact.ID).Error("Failed to delete contact")
@@ -147,6 +147,6 @@ func (r *ContactRepository) Delete(ctx context.Context, tx bun.IDB, contact *m.C
 		return nil
 	}
 
-	r.Log.WithField("contact_id", contact.ID).Info("Contact deleted successfully")
+	r.Log.WithField("contact_id", contact.ID).Debug("Contact deleted successfully")
 	return nil
 }

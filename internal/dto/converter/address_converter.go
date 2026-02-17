@@ -5,7 +5,7 @@ import (
 	dbmodel "golang-clean-architecture/internal/persistence/model"
 )
 
-func AddressToResponse(address *dbmodel.Addresses) *dto.AddressResponse {
+func AddressToResponse(address *dbmodel.Address) *dto.AddressResponse {
 	return &dto.AddressResponse{
 		ID:         address.ID,
 		Street:     stringValueOrEmpty(address.Street),

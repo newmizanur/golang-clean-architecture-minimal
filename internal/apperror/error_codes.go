@@ -90,8 +90,8 @@ var ItemErrors = struct {
 	FailedToGet:               NewAppError(6005, http.StatusInternalServerError, "failed to get item"),
 	FailedToUpdate:            NewAppError(6006, http.StatusInternalServerError, "failed to update item"),
 	FailedToDelete:            NewAppError(6007, http.StatusInternalServerError, "failed to delete item"),
-	FailedToCreateTransaction: NewAppError(6002, http.StatusBadRequest, "faild to create transaction to create item"),
-	FailedToCreateItem:        NewAppError(6003, http.StatusBadRequest, "faild to create item"),
+	FailedToCreateTransaction: NewAppError(6002, http.StatusInternalServerError, "failed to create transaction to create item"),
+	FailedToCreateItem:        NewAppError(6003, http.StatusInternalServerError, "failed to create item"),
 }
 
 var UnknownErrors = struct {

@@ -30,17 +30,17 @@ func (r *ItemRepository) dbConn(tx bun.IDB) bun.IDB {
 	return r.DB
 }
 
-func (r *ItemRepository) Create(ctx context.Context, tx bun.IDB, item *m.Items) (int64, error) {
+func (r *ItemRepository) Create(ctx context.Context, tx bun.IDB, item *m.Item) (int64, error) {
 	_, err := r.dbConn(tx).NewInsert().Model(item).Returning("id").Exec(ctx)
 	if err != nil {
 		r.Log.WithError(err).Error("Failed to create item")
 		return 0, err
 	}
-	r.Log.WithField("item_id", item.ID).Info("Item created successfully")
+	r.Log.WithField("item_id", item.ID).Debug("Item created successfully")
 	return item.ID, nil
 }
 
-func (r *ItemRepository) Update(ctx context.Context, tx bun.IDB, item *m.Items) error {
+func (r *ItemRepository) Update(ctx context.Context, tx bun.IDB, item *m.Item) error {
 	result, err := r.dbConn(tx).NewUpdate().
 		Model(item).
 		OmitZero().
@@ -62,12 +62,12 @@ func (r *ItemRepository) Update(ctx context.Context, tx bun.IDB, item *m.Items) 
 		return nil
 	}
 
-	r.Log.WithField("item_id", item.ID).Info("Item updated successfully")
+	r.Log.WithField("item_id", item.ID).Debug("Item updated successfully")
 	return nil
 }
 
-func (r *ItemRepository) FindById(ctx context.Context, tx bun.IDB, id int64) (*m.Items, error) {
-	item := new(m.Items)
+func (r *ItemRepository) FindById(ctx context.Context, tx bun.IDB, id int64) (*m.Item, error) {
+	item := new(m.Item)
 	err := r.dbConn(tx).NewSelect().
 		Model(item).
 		Where("id = ?", id).
@@ -82,7 +82,7 @@ func (r *ItemRepository) FindById(ctx context.Context, tx bun.IDB, id int64) (*m
 	return item, nil
 }
 
-func (r *ItemRepository) Delete(ctx context.Context, tx bun.IDB, item *m.Items) error {
+func (r *ItemRepository) Delete(ctx context.Context, tx bun.IDB, item *m.Item) error {
 	result, err := r.dbConn(tx).NewDelete().Model(item).WherePK().Exec(ctx)
 	if err != nil {
 		r.Log.WithError(err).WithField("item_id", item.ID).Error("Failed to delete item")
@@ -100,12 +100,12 @@ func (r *ItemRepository) Delete(ctx context.Context, tx bun.IDB, item *m.Items) 
 		return nil
 	}
 
-	r.Log.WithField("item_id", item.ID).Info("Item deleted successfully")
+	r.Log.WithField("item_id", item.ID).Debug("Item deleted successfully")
 	return nil
 }
 
-func (r *ItemRepository) Search(ctx context.Context, tx bun.IDB, search *dto.SearchItemRequest) ([]m.Items, int64, error) {
-	var items []m.Items
+func (r *ItemRepository) Search(ctx context.Context, tx bun.IDB, search *dto.SearchItemRequest) ([]m.Item, int64, error) {
+	var items []m.Item
 
 	// Validate pagination parameters
 	if search.Page < 1 {

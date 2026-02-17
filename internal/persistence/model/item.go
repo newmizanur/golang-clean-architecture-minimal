@@ -6,7 +6,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type Items struct {
+type Item struct {
 	bun.BaseModel `bun:"table:items,alias:i"`
 
 	ID        int64      `bun:",pk,autoincrement,column:id"`

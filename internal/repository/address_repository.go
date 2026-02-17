@@ -28,8 +28,8 @@ func (r *AddressRepository) dbConn(tx bun.IDB) bun.IDB {
 	return r.DB
 }
 
-func (r *AddressRepository) FindByIdAndContactId(ctx context.Context, tx bun.IDB, id string, contactId string) (*m.Addresses, error) {
-	address := new(m.Addresses)
+func (r *AddressRepository) FindByIdAndContactId(ctx context.Context, tx bun.IDB, id string, contactId string) (*m.Address, error) {
+	address := new(m.Address)
 	err := r.dbConn(tx).NewSelect().
 		Model(address).
 		Where("id = ?", id).
@@ -45,8 +45,8 @@ func (r *AddressRepository) FindByIdAndContactId(ctx context.Context, tx bun.IDB
 	return address, nil
 }
 
-func (r *AddressRepository) FindAllByContactId(ctx context.Context, tx bun.IDB, contactId string) ([]m.Addresses, error) {
-	var addresses []m.Addresses
+func (r *AddressRepository) FindAllByContactId(ctx context.Context, tx bun.IDB, contactId string) ([]m.Address, error) {
+	var addresses []m.Address
 	err := r.dbConn(tx).NewSelect().
 		Model(&addresses).
 		Where("contact_id = ?", contactId).
@@ -57,20 +57,20 @@ func (r *AddressRepository) FindAllByContactId(ctx context.Context, tx bun.IDB, 
 	return addresses, nil
 }
 
-func (r *AddressRepository) Create(ctx context.Context, tx bun.IDB, address *m.Addresses) error {
+func (r *AddressRepository) Create(ctx context.Context, tx bun.IDB, address *m.Address) error {
 	_, err := r.dbConn(tx).NewInsert().Model(address).Exec(ctx)
 	if err != nil {
 		r.Log.WithError(err).WithField("address_id", address.ID).Error("Failed to create address")
 		return err
 	}
-	r.Log.WithField("address_id", address.ID).Info("Address created successfully")
+	r.Log.WithField("address_id", address.ID).Debug("Address created successfully")
 	return nil
 }
 
-func (r *AddressRepository) Update(ctx context.Context, tx bun.IDB, address *m.Addresses) error {
+func (r *AddressRepository) Update(ctx context.Context, tx bun.IDB, address *m.Address) error {
 	result, err := r.dbConn(tx).NewUpdate().
 		Model(address).
-		OmitZero().
+		Column("street", "city", "province", "postal_code", "country", "updated_at").
 		WherePK().
 		Exec(ctx)
 	if err != nil {
@@ -89,11 +89,11 @@ func (r *AddressRepository) Update(ctx context.Context, tx bun.IDB, address *m.A
 		return nil
 	}
 
-	r.Log.WithField("address_id", address.ID).Info("Address updated successfully")
+	r.Log.WithField("address_id", address.ID).Debug("Address updated successfully")
 	return nil
 }
 
-func (r *AddressRepository) Delete(ctx context.Context, tx bun.IDB, address *m.Addresses) error {
+func (r *AddressRepository) Delete(ctx context.Context, tx bun.IDB, address *m.Address) error {
 	result, err := r.dbConn(tx).NewDelete().Model(address).WherePK().Exec(ctx)
 	if err != nil {
 		r.Log.WithError(err).WithField("address_id", address.ID).Error("Failed to delete address")
@@ -111,6 +111,6 @@ func (r *AddressRepository) Delete(ctx context.Context, tx bun.IDB, address *m.A
 		return nil
 	}
 
-	r.Log.WithField("address_id", address.ID).Info("Address deleted successfully")
+	r.Log.WithField("address_id", address.ID).Debug("Address deleted successfully")
 	return nil
 }

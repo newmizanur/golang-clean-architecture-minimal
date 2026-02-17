@@ -2,7 +2,7 @@ package model
 
 import "github.com/uptrace/bun"
 
-type Addresses struct {
+type Address struct {
 	bun.BaseModel `bun:"table:addresses,alias:a"`
 
 	ID         string  `bun:",pk,column:id"`

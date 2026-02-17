@@ -57,7 +57,7 @@ func (c *UserUseCase) Create(ctx context.Context, request *dto.RegisterUserReque
 	}
 
 	now := time.Now().UnixMilli()
-	user := &m.Users{
+	user := &m.User{
 		ID:        uuid.NewString(),
 		Password:  string(password),
 		Name:      request.Name,

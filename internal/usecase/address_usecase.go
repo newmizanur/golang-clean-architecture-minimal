@@ -49,15 +49,15 @@ func (c *AddressUseCase) Create(ctx context.Context, request *dto.CreateAddressR
 	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, tx, request.ContactId, request.UserId)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find contact")
-		return nil, apperror.AddressErrors.NotFound
+		return nil, apperror.AddressErrors.FailedToCreate
 	}
 	if contact == nil {
 		c.Log.WithField("contact_id", request.ContactId).Warn("contact not found")
-		return nil, apperror.AddressErrors.NotFound
+		return nil, apperror.ContactErrors.NotFound
 	}
 
 	now := time.Now().UnixMilli()
-	address := &m.Addresses{
+	address := &m.Address{
 		ID:         uuid.NewString(),
 		ContactID:  contact.ID,
 		Street:     stringPtrOrNil(request.Street),
@@ -98,17 +98,17 @@ func (c *AddressUseCase) Update(ctx context.Context, request *dto.UpdateAddressR
 	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, tx, request.ContactId, request.UserId)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find contact")
-		return nil, apperror.AddressErrors.NotFound
+		return nil, apperror.AddressErrors.FailedToUpdate
 	}
 	if contact == nil {
 		c.Log.WithField("contact_id", request.ContactId).Warn("contact not found")
-		return nil, apperror.AddressErrors.NotFound
+		return nil, apperror.ContactErrors.NotFound
 	}
 
 	address, err := c.AddressRepository.FindByIdAndContactId(ctx, tx, request.ID, contact.ID)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find address")
-		return nil, apperror.AddressErrors.NotFound
+		return nil, apperror.AddressErrors.FailedToUpdate
 	}
 	if address == nil {
 		c.Log.WithField("address_id", request.ID).Warn("address not found")
@@ -136,21 +136,26 @@ func (c *AddressUseCase) Update(ctx context.Context, request *dto.UpdateAddressR
 }
 
 func (c *AddressUseCase) Get(ctx context.Context, request *dto.GetAddressRequest) (*dto.AddressResponse, error) {
+	if err := c.Validate.Struct(request); err != nil {
+		c.Log.WithError(err).Error("failed to validate request body")
+		return nil, apperror.AddressErrors.InvalidRequest
+	}
+
 	// Read-only operation, no transaction needed
 	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, nil, request.ContactId, request.UserId)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find contact")
-		return nil, apperror.AddressErrors.NotFound
+		return nil, apperror.AddressErrors.FailedToGet
 	}
 	if contact == nil {
 		c.Log.WithField("contact_id", request.ContactId).Warn("contact not found")
-		return nil, apperror.AddressErrors.NotFound
+		return nil, apperror.ContactErrors.NotFound
 	}
 
 	address, err := c.AddressRepository.FindByIdAndContactId(ctx, nil, request.ID, contact.ID)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find address")
-		return nil, apperror.AddressErrors.NotFound
+		return nil, apperror.AddressErrors.FailedToGet
 	}
 	if address == nil {
 		c.Log.WithField("address_id", request.ID).Warn("address not found")
@@ -161,6 +166,11 @@ func (c *AddressUseCase) Get(ctx context.Context, request *dto.GetAddressRequest
 }
 
 func (c *AddressUseCase) Delete(ctx context.Context, request *dto.DeleteAddressRequest) error {
+	if err := c.Validate.Struct(request); err != nil {
+		c.Log.WithError(err).Error("failed to validate request body")
+		return apperror.AddressErrors.InvalidRequest
+	}
+
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to start transaction")
@@ -171,17 +181,17 @@ func (c *AddressUseCase) Delete(ctx context.Context, request *dto.DeleteAddressR
 	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, tx, request.ContactId, request.UserId)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find contact")
-		return apperror.AddressErrors.NotFound
+		return apperror.AddressErrors.FailedToDelete
 	}
 	if contact == nil {
 		c.Log.WithField("contact_id", request.ContactId).Warn("contact not found")
-		return apperror.AddressErrors.NotFound
+		return apperror.ContactErrors.NotFound
 	}
 
 	address, err := c.AddressRepository.FindByIdAndContactId(ctx, tx, request.ID, contact.ID)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find address")
-		return apperror.AddressErrors.NotFound
+		return apperror.AddressErrors.FailedToDelete
 	}
 	if address == nil {
 		c.Log.WithField("address_id", request.ID).Warn("address not found")
@@ -202,15 +212,20 @@ func (c *AddressUseCase) Delete(ctx context.Context, request *dto.DeleteAddressR
 }
 
 func (c *AddressUseCase) List(ctx context.Context, request *dto.ListAddressRequest) ([]dto.AddressResponse, error) {
+	if err := c.Validate.Struct(request); err != nil {
+		c.Log.WithError(err).Error("failed to validate request body")
+		return nil, apperror.AddressErrors.InvalidRequest
+	}
+
 	// Read-only operation, no transaction needed
 	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, nil, request.ContactId, request.UserId)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find contact")
-		return nil, apperror.AddressErrors.NotFound
+		return nil, apperror.AddressErrors.FailedToList
 	}
 	if contact == nil {
 		c.Log.WithField("contact_id", request.ContactId).Warn("contact not found")
-		return nil, apperror.AddressErrors.NotFound
+		return nil, apperror.ContactErrors.NotFound
 	}
 
 	addresses, err := c.AddressRepository.FindAllByContactId(ctx, nil, contact.ID)
