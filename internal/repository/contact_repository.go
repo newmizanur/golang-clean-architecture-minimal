@@ -2,54 +2,36 @@ package repository
 
 import (
 	"context"
-	"golang-clean-architecture/internal/apperror"
+
+	"golang-clean-architecture/ent"
+	"golang-clean-architecture/ent/contact"
 	"golang-clean-architecture/internal/dto"
-	m "golang-clean-architecture/internal/persistence/model"
 
 	"github.com/sirupsen/logrus"
-	"github.com/uptrace/bun"
 )
 
 type ContactRepository struct {
-	DB  *bun.DB
 	Log *logrus.Logger
 }
 
-func NewContactRepository(db *bun.DB, log *logrus.Logger) *ContactRepository {
-	return &ContactRepository{
-		DB:  db,
-		Log: log,
-	}
+func NewContactRepository(log *logrus.Logger) *ContactRepository {
+	return &ContactRepository{Log: log}
 }
 
-func (r *ContactRepository) dbConn(tx bun.IDB) bun.IDB {
-	if tx != nil {
-		return tx
-	}
-	return r.DB
-}
-
-func (r *ContactRepository) FindByIdAndUserId(ctx context.Context, tx bun.IDB, id string, userId string) (*m.Contact, error) {
-	contact := new(m.Contact)
-	err := r.dbConn(tx).NewSelect().
-		Model(contact).
-		Where("id = ?", id).
-		Where("user_id = ?", userId).
-		Limit(1).
-		Scan(ctx)
+func (r *ContactRepository) FindByIdAndUserId(ctx context.Context, client *ent.Client, id string, userId string) (*ent.Contact, error) {
+	c, err := client.Contact.Query().
+		Where(contact.ID(id), contact.UserID(userId)).
+		Only(ctx)
 	if err != nil {
-		if apperror.IsNoRows(err) {
+		if ent.IsNotFound(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return contact, nil
+	return c, nil
 }
 
-func (r *ContactRepository) Search(ctx context.Context, tx bun.IDB, request *dto.SearchContactRequest) ([]m.Contact, int64, error) {
-	var contacts []m.Contact
-
-	// Validate pagination parameters
+func (r *ContactRepository) Search(ctx context.Context, client *ent.Client, request *dto.SearchContactRequest) ([]*ent.Contact, int64, error) {
 	if request.Page < 1 {
 		request.Page = 1
 	}
@@ -57,96 +39,102 @@ func (r *ContactRepository) Search(ctx context.Context, tx bun.IDB, request *dto
 		request.Size = 10
 	}
 
-	offset := (request.Page - 1) * request.Size
+	query := client.Contact.Query().Where(contact.UserID(request.UserId))
 
-	query := r.dbConn(tx).NewSelect().
-		Model(&contacts).
-		Where("user_id = ?", request.UserId)
-
-	if name := request.Name; name != "" {
-		pattern := "%" + name + "%"
-		query = query.Where("(first_name ILIKE ? OR last_name ILIKE ?)", pattern, pattern)
+	if request.Name != "" {
+		query = query.Where(
+			contact.Or(
+				contact.FirstNameContainsFold(request.Name),
+				contact.LastNameContainsFold(request.Name),
+			),
+		)
+	}
+	if request.Phone != "" {
+		query = query.Where(contact.PhoneContainsFold(request.Phone))
+	}
+	if request.Email != "" {
+		query = query.Where(contact.EmailContainsFold(request.Email))
 	}
 
-	if phone := request.Phone; phone != "" {
-		pattern := "%" + phone + "%"
-		query = query.Where("phone ILIKE ?", pattern)
-	}
-
-	if email := request.Email; email != "" {
-		pattern := "%" + email + "%"
-		query = query.Where("email ILIKE ?", pattern)
-	}
-
-	count, err := query.Count(ctx)
+	total, err := query.Count(ctx)
 	if err != nil {
 		r.Log.WithError(err).Error("Failed to count contacts")
 		return nil, 0, err
 	}
 
-	err = query.Limit(request.Size).Offset(offset).Scan(ctx)
+	offset := (request.Page - 1) * request.Size
+	contacts, err := query.Limit(request.Size).Offset(offset).All(ctx)
 	if err != nil {
 		r.Log.WithError(err).Error("Failed to search contacts")
 		return nil, 0, err
 	}
 
-	return contacts, int64(count), nil
+	return contacts, int64(total), nil
 }
 
-func (r *ContactRepository) Create(ctx context.Context, tx bun.IDB, contact *m.Contact) error {
-	_, err := r.dbConn(tx).NewInsert().Model(contact).Exec(ctx)
+func (r *ContactRepository) Create(ctx context.Context, client *ent.Client, c *ent.Contact) error {
+	builder := client.Contact.Create().
+		SetID(c.ID).
+		SetFirstName(c.FirstName).
+		SetUserID(c.UserID).
+		SetCreatedAt(c.CreatedAt).
+		SetUpdatedAt(c.UpdatedAt)
+
+	if c.LastName != nil {
+		builder = builder.SetNillableLastName(c.LastName)
+	}
+	if c.Email != nil {
+		builder = builder.SetNillableEmail(c.Email)
+	}
+	if c.Phone != nil {
+		builder = builder.SetNillablePhone(c.Phone)
+	}
+
+	_, err := builder.Save(ctx)
 	if err != nil {
-		r.Log.WithError(err).WithField("contact_id", contact.ID).Error("Failed to create contact")
+		r.Log.WithError(err).WithField("contact_id", c.ID).Error("Failed to create contact")
 		return err
 	}
-	r.Log.WithField("contact_id", contact.ID).Debug("Contact created successfully")
+	r.Log.WithField("contact_id", c.ID).Debug("Contact created successfully")
 	return nil
 }
 
-func (r *ContactRepository) Update(ctx context.Context, tx bun.IDB, contact *m.Contact) error {
-	result, err := r.dbConn(tx).NewUpdate().
-		Model(contact).
-		OmitZero().
-		WherePK().
-		Exec(ctx)
+func (r *ContactRepository) Update(ctx context.Context, client *ent.Client, c *ent.Contact) error {
+	builder := client.Contact.UpdateOneID(c.ID).
+		SetFirstName(c.FirstName).
+		SetUpdatedAt(c.UpdatedAt)
+
+	if c.LastName != nil {
+		builder = builder.SetLastName(*c.LastName)
+	} else {
+		builder = builder.ClearLastName()
+	}
+	if c.Email != nil {
+		builder = builder.SetEmail(*c.Email)
+	} else {
+		builder = builder.ClearEmail()
+	}
+	if c.Phone != nil {
+		builder = builder.SetPhone(*c.Phone)
+	} else {
+		builder = builder.ClearPhone()
+	}
+
+	_, err := builder.Save(ctx)
 	if err != nil {
-		r.Log.WithError(err).WithField("contact_id", contact.ID).Error("Failed to update contact")
+		r.Log.WithError(err).WithField("contact_id", c.ID).Error("Failed to update contact")
 		return err
 	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		r.Log.WithError(err).Error("Failed to get rows affected")
-		return err
-	}
-
-	if rowsAffected == 0 {
-		r.Log.WithField("contact_id", contact.ID).Warn("No contact updated - contact not found")
-		return nil
-	}
-
-	r.Log.WithField("contact_id", contact.ID).Debug("Contact updated successfully")
+	r.Log.WithField("contact_id", c.ID).Debug("Contact updated successfully")
 	return nil
 }
 
-func (r *ContactRepository) Delete(ctx context.Context, tx bun.IDB, contact *m.Contact) error {
-	result, err := r.dbConn(tx).NewDelete().Model(contact).WherePK().Exec(ctx)
+func (r *ContactRepository) Delete(ctx context.Context, client *ent.Client, id string) error {
+	err := client.Contact.DeleteOneID(id).Exec(ctx)
 	if err != nil {
-		r.Log.WithError(err).WithField("contact_id", contact.ID).Error("Failed to delete contact")
+		r.Log.WithError(err).WithField("contact_id", id).Error("Failed to delete contact")
 		return err
 	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		r.Log.WithError(err).Error("Failed to get rows affected")
-		return err
-	}
-
-	if rowsAffected == 0 {
-		r.Log.WithField("contact_id", contact.ID).Warn("No contact deleted - contact not found")
-		return nil
-	}
-
-	r.Log.WithField("contact_id", contact.ID).Debug("Contact deleted successfully")
+	r.Log.WithField("contact_id", id).Debug("Contact deleted successfully")
 	return nil
 }

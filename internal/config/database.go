@@ -6,14 +6,16 @@ import (
 	"net/url"
 	"time"
 
+	"golang-clean-architecture/ent"
+
+	"entgo.io/ent/dialect"
+	entsql "entgo.io/ent/dialect/sql"
+	_ "github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
-	_ "github.com/uptrace/bun/driver/pgdriver"
 )
 
-func NewDatabase(viper *viper.Viper, log *logrus.Logger) *bun.DB {
+func NewDatabase(viper *viper.Viper, log *logrus.Logger) *ent.Client {
 	username := viper.GetString("database.username")
 	password := url.QueryEscape(viper.GetString("database.password"))
 	host := viper.GetString("database.host")
@@ -25,7 +27,7 @@ func NewDatabase(viper *viper.Viper, log *logrus.Logger) *bun.DB {
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", username, password, host, port, database)
 
-	sqldb, err := sql.Open("pg", dsn)
+	sqldb, err := sql.Open("postgres", dsn)
 	if err != nil {
 		log.Fatalf("failed to connect database: %v", err)
 	}
@@ -38,5 +40,6 @@ func NewDatabase(viper *viper.Viper, log *logrus.Logger) *bun.DB {
 	sqldb.SetMaxOpenConns(maxConnection)
 	sqldb.SetConnMaxLifetime(time.Second * time.Duration(maxLifeTimeConnection))
 
-	return bun.NewDB(sqldb, pgdialect.New())
+	drv := entsql.OpenDB(dialect.Postgres, sqldb)
+	return ent.NewClient(ent.Driver(drv))
 }

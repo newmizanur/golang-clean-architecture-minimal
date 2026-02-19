@@ -2,30 +2,29 @@ package usecase
 
 import (
 	"context"
+	"golang-clean-architecture/ent"
 	"golang-clean-architecture/internal/apperror"
 	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/dto/converter"
-	m "golang-clean-architecture/internal/persistence/model"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"github.com/uptrace/bun"
 )
 
 type AddressUseCase struct {
-	DB                *bun.DB
+	Client            *ent.Client
 	Log               *logrus.Logger
 	Validate          *validator.Validate
 	AddressRepository AddressRepositoryPort
 	ContactRepository ContactRepositoryPort
 }
 
-func NewAddressUseCase(db *bun.DB, logger *logrus.Logger, validate *validator.Validate,
+func NewAddressUseCase(client *ent.Client, logger *logrus.Logger, validate *validator.Validate,
 	contactRepository ContactRepositoryPort, addressRepository AddressRepositoryPort) *AddressUseCase {
 	return &AddressUseCase{
-		DB:                db,
+		Client:            client,
 		Log:               logger,
 		Validate:          validate,
 		ContactRepository: contactRepository,
@@ -34,7 +33,7 @@ func NewAddressUseCase(db *bun.DB, logger *logrus.Logger, validate *validator.Va
 }
 
 func (c *AddressUseCase) Create(ctx context.Context, request *dto.CreateAddressRequest) (*dto.AddressResponse, error) {
-	tx, err := c.DB.BeginTx(ctx, nil)
+	tx, err := c.Client.Tx(ctx)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to start transaction")
 		return nil, apperror.AddressErrors.FailedToCreate
@@ -46,7 +45,7 @@ func (c *AddressUseCase) Create(ctx context.Context, request *dto.CreateAddressR
 		return nil, apperror.AddressErrors.InvalidRequest
 	}
 
-	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, tx, request.ContactId, request.UserId)
+	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, tx.Client(), request.ContactId, request.UserId)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find contact")
 		return nil, apperror.AddressErrors.FailedToCreate
@@ -57,7 +56,7 @@ func (c *AddressUseCase) Create(ctx context.Context, request *dto.CreateAddressR
 	}
 
 	now := time.Now().UnixMilli()
-	address := &m.Address{
+	address := &ent.Address{
 		ID:         uuid.NewString(),
 		ContactID:  contact.ID,
 		Street:     stringPtrOrNil(request.Street),
@@ -69,7 +68,7 @@ func (c *AddressUseCase) Create(ctx context.Context, request *dto.CreateAddressR
 		UpdatedAt:  now,
 	}
 
-	if err := c.AddressRepository.Create(ctx, tx, address); err != nil {
+	if err := c.AddressRepository.Create(ctx, tx.Client(), address); err != nil {
 		c.Log.WithError(err).Error("failed to create address")
 		return nil, apperror.AddressErrors.FailedToCreate
 	}
@@ -83,7 +82,7 @@ func (c *AddressUseCase) Create(ctx context.Context, request *dto.CreateAddressR
 }
 
 func (c *AddressUseCase) Update(ctx context.Context, request *dto.UpdateAddressRequest) (*dto.AddressResponse, error) {
-	tx, err := c.DB.BeginTx(ctx, nil)
+	tx, err := c.Client.Tx(ctx)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to start transaction")
 		return nil, apperror.AddressErrors.FailedToUpdate
@@ -95,7 +94,7 @@ func (c *AddressUseCase) Update(ctx context.Context, request *dto.UpdateAddressR
 		return nil, apperror.AddressErrors.InvalidRequest
 	}
 
-	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, tx, request.ContactId, request.UserId)
+	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, tx.Client(), request.ContactId, request.UserId)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find contact")
 		return nil, apperror.AddressErrors.FailedToUpdate
@@ -105,7 +104,7 @@ func (c *AddressUseCase) Update(ctx context.Context, request *dto.UpdateAddressR
 		return nil, apperror.ContactErrors.NotFound
 	}
 
-	address, err := c.AddressRepository.FindByIdAndContactId(ctx, tx, request.ID, contact.ID)
+	address, err := c.AddressRepository.FindByIdAndContactId(ctx, tx.Client(), request.ID, contact.ID)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find address")
 		return nil, apperror.AddressErrors.FailedToUpdate
@@ -122,7 +121,7 @@ func (c *AddressUseCase) Update(ctx context.Context, request *dto.UpdateAddressR
 	address.Country = stringPtrOrNil(request.Country)
 	address.UpdatedAt = time.Now().UnixMilli()
 
-	if err := c.AddressRepository.Update(ctx, tx, address); err != nil {
+	if err := c.AddressRepository.Update(ctx, tx.Client(), address); err != nil {
 		c.Log.WithError(err).Error("failed to update address")
 		return nil, apperror.AddressErrors.FailedToUpdate
 	}
@@ -141,8 +140,7 @@ func (c *AddressUseCase) Get(ctx context.Context, request *dto.GetAddressRequest
 		return nil, apperror.AddressErrors.InvalidRequest
 	}
 
-	// Read-only operation, no transaction needed
-	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, nil, request.ContactId, request.UserId)
+	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, c.Client, request.ContactId, request.UserId)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find contact")
 		return nil, apperror.AddressErrors.FailedToGet
@@ -152,7 +150,7 @@ func (c *AddressUseCase) Get(ctx context.Context, request *dto.GetAddressRequest
 		return nil, apperror.ContactErrors.NotFound
 	}
 
-	address, err := c.AddressRepository.FindByIdAndContactId(ctx, nil, request.ID, contact.ID)
+	address, err := c.AddressRepository.FindByIdAndContactId(ctx, c.Client, request.ID, contact.ID)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find address")
 		return nil, apperror.AddressErrors.FailedToGet
@@ -171,14 +169,14 @@ func (c *AddressUseCase) Delete(ctx context.Context, request *dto.DeleteAddressR
 		return apperror.AddressErrors.InvalidRequest
 	}
 
-	tx, err := c.DB.BeginTx(ctx, nil)
+	tx, err := c.Client.Tx(ctx)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to start transaction")
 		return apperror.AddressErrors.FailedToDelete
 	}
 	defer tx.Rollback()
 
-	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, tx, request.ContactId, request.UserId)
+	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, tx.Client(), request.ContactId, request.UserId)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find contact")
 		return apperror.AddressErrors.FailedToDelete
@@ -188,7 +186,7 @@ func (c *AddressUseCase) Delete(ctx context.Context, request *dto.DeleteAddressR
 		return apperror.ContactErrors.NotFound
 	}
 
-	address, err := c.AddressRepository.FindByIdAndContactId(ctx, tx, request.ID, contact.ID)
+	address, err := c.AddressRepository.FindByIdAndContactId(ctx, tx.Client(), request.ID, contact.ID)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find address")
 		return apperror.AddressErrors.FailedToDelete
@@ -198,7 +196,7 @@ func (c *AddressUseCase) Delete(ctx context.Context, request *dto.DeleteAddressR
 		return apperror.AddressErrors.NotFound
 	}
 
-	if err := c.AddressRepository.Delete(ctx, tx, address); err != nil {
+	if err := c.AddressRepository.Delete(ctx, tx.Client(), address.ID); err != nil {
 		c.Log.WithError(err).Error("failed to delete address")
 		return apperror.AddressErrors.FailedToDelete
 	}
@@ -217,8 +215,7 @@ func (c *AddressUseCase) List(ctx context.Context, request *dto.ListAddressReque
 		return nil, apperror.AddressErrors.InvalidRequest
 	}
 
-	// Read-only operation, no transaction needed
-	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, nil, request.ContactId, request.UserId)
+	contact, err := c.ContactRepository.FindByIdAndUserId(ctx, c.Client, request.ContactId, request.UserId)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find contact")
 		return nil, apperror.AddressErrors.FailedToList
@@ -228,7 +225,7 @@ func (c *AddressUseCase) List(ctx context.Context, request *dto.ListAddressReque
 		return nil, apperror.ContactErrors.NotFound
 	}
 
-	addresses, err := c.AddressRepository.FindAllByContactId(ctx, nil, contact.ID)
+	addresses, err := c.AddressRepository.FindAllByContactId(ctx, c.Client, contact.ID)
 	if err != nil {
 		c.Log.WithError(err).Error("failed to find addresses")
 		return nil, apperror.AddressErrors.FailedToList
@@ -236,7 +233,7 @@ func (c *AddressUseCase) List(ctx context.Context, request *dto.ListAddressReque
 
 	responses := make([]dto.AddressResponse, len(addresses))
 	for i, address := range addresses {
-		responses[i] = *converter.AddressToResponse(&address)
+		responses[i] = *converter.AddressToResponse(address)
 	}
 
 	return responses, nil

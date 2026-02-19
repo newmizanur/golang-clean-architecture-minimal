@@ -4,26 +4,25 @@ import (
 	"context"
 	"time"
 
+	"golang-clean-architecture/ent"
 	"golang-clean-architecture/internal/apperror"
 	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/dto/converter"
-	m "golang-clean-architecture/internal/persistence/model"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
-	"github.com/uptrace/bun"
 )
 
 type ItemUseCase struct {
-	DB             *bun.DB
+	Client         *ent.Client
 	Log            *logrus.Logger
 	Validate       *validator.Validate
 	ItemRepository ItemRepositoryPort
 }
 
-func NewItemUseCase(db *bun.DB, log *logrus.Logger, validate *validator.Validate, repo ItemRepositoryPort) *ItemUseCase {
+func NewItemUseCase(client *ent.Client, log *logrus.Logger, validate *validator.Validate, repo ItemRepositoryPort) *ItemUseCase {
 	return &ItemUseCase{
-		DB:             db,
+		Client:         client,
 		Log:            log,
 		Validate:       validate,
 		ItemRepository: repo,
@@ -36,7 +35,7 @@ func (c *ItemUseCase) Create(ctx context.Context, request *dto.CreateItemRequest
 		return nil, apperror.ItemErrors.InvalidRequest
 	}
 
-	tx, err := c.DB.BeginTx(ctx, nil)
+	tx, err := c.Client.Tx(ctx)
 	if err != nil {
 		c.Log.WithError(err).Error("error on starting transaction at item usecase")
 		return nil, apperror.ItemErrors.FailedToCreateTransaction
@@ -44,49 +43,45 @@ func (c *ItemUseCase) Create(ctx context.Context, request *dto.CreateItemRequest
 	defer tx.Rollback()
 
 	now := time.Now()
-	item := m.Item{
+	item := &ent.Item{
 		Name:      request.Name,
 		Sku:       request.SKU,
 		Currency:  request.Currency,
 		Stock:     request.Stock,
-		CreatedAt: &now,
-		UpdatedAt: &now,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 
-	id, err := c.ItemRepository.Create(ctx, tx, &item)
+	created, err := c.ItemRepository.Create(ctx, tx.Client(), item)
 	if err != nil {
 		c.Log.WithError(err).Error("error on creating item")
 		return nil, apperror.ItemErrors.FailedToCreateItem
 	}
-	item.ID = id
 
 	if err := tx.Commit(); err != nil {
 		c.Log.WithError(err).Error("error creating item")
 		return nil, apperror.ItemErrors.FailedToCreateItem
 	}
 
-	return converter.ItemToResponse(&item), nil
+	return converter.ItemToResponse(created), nil
 }
 
 func (c *ItemUseCase) Search(ctx context.Context, request *dto.SearchItemRequest) ([]dto.CreateItemResponse, int64, error) {
-	var response []dto.CreateItemResponse
-	// Read-only operation, no transaction needed
-	items, total, err := c.ItemRepository.Search(ctx, nil, request)
+	items, total, err := c.ItemRepository.Search(ctx, c.Client, request)
 	if err != nil {
-		return response, 0, err
+		return nil, 0, err
 	}
 
-	response = make([]dto.CreateItemResponse, len(items))
+	response := make([]dto.CreateItemResponse, len(items))
 	for i, item := range items {
-		response[i] = *converter.ItemToResponse(&item)
+		response[i] = *converter.ItemToResponse(item)
 	}
 
 	return response, total, nil
 }
 
 func (c *ItemUseCase) Get(ctx context.Context, request *dto.GetItemRequest) (*dto.CreateItemResponse, error) {
-	// Read-only operation, no transaction needed
-	item, err := c.ItemRepository.FindById(ctx, nil, request.ID)
+	item, err := c.ItemRepository.FindById(ctx, c.Client, int(request.ID))
 	if err != nil {
 		c.Log.WithError(err).Error("error getting item")
 		return nil, apperror.ItemErrors.FailedToGet
@@ -104,14 +99,14 @@ func (c *ItemUseCase) Update(ctx context.Context, request *dto.UpdateItemRequest
 		return nil, apperror.ItemErrors.InvalidRequest
 	}
 
-	tx, err := c.DB.BeginTx(ctx, nil)
+	tx, err := c.Client.Tx(ctx)
 	if err != nil {
 		c.Log.WithError(err).Error("error starting transaction on update item")
 		return nil, apperror.ItemErrors.FailedToUpdate
 	}
 	defer tx.Rollback()
 
-	item, err := c.ItemRepository.FindById(ctx, tx, request.ID)
+	item, err := c.ItemRepository.FindById(ctx, tx.Client(), int(request.ID))
 	if err != nil {
 		c.Log.WithError(err).Error("error getting item")
 		return nil, apperror.ItemErrors.FailedToUpdate
@@ -120,18 +115,15 @@ func (c *ItemUseCase) Update(ctx context.Context, request *dto.UpdateItemRequest
 		return nil, apperror.ItemErrors.NotFound
 	}
 
-	// Update fields - OmitZero in repository will handle partial updates
 	item.Name = request.Name
 	item.Sku = request.SKU
 	item.Currency = request.Currency
 	if request.Stock >= 0 {
 		item.Stock = request.Stock
 	}
+	item.UpdatedAt = time.Now()
 
-	now := time.Now()
-	item.UpdatedAt = &now
-
-	if err := c.ItemRepository.Update(ctx, tx, item); err != nil {
+	if err := c.ItemRepository.Update(ctx, tx.Client(), item); err != nil {
 		c.Log.WithError(err).Error("error updating item")
 		return nil, apperror.ItemErrors.FailedToUpdate
 	}
@@ -145,14 +137,14 @@ func (c *ItemUseCase) Update(ctx context.Context, request *dto.UpdateItemRequest
 }
 
 func (c *ItemUseCase) Delete(ctx context.Context, request *dto.DeleteItemRequest) error {
-	tx, err := c.DB.BeginTx(ctx, nil)
+	tx, err := c.Client.Tx(ctx)
 	if err != nil {
 		c.Log.WithError(err).Error("error starting transaction on delete item")
 		return apperror.ItemErrors.FailedToDelete
 	}
 	defer tx.Rollback()
 
-	item, err := c.ItemRepository.FindById(ctx, tx, request.ID)
+	item, err := c.ItemRepository.FindById(ctx, tx.Client(), int(request.ID))
 	if err != nil {
 		c.Log.WithError(err).Error("error getting item")
 		return apperror.ItemErrors.FailedToDelete
@@ -161,7 +153,7 @@ func (c *ItemUseCase) Delete(ctx context.Context, request *dto.DeleteItemRequest
 		return apperror.ItemErrors.NotFound
 	}
 
-	if err := c.ItemRepository.Delete(ctx, tx, item); err != nil {
+	if err := c.ItemRepository.Delete(ctx, tx.Client(), item.ID); err != nil {
 		c.Log.WithError(err).Error("error deleting item")
 		return apperror.ItemErrors.FailedToDelete
 	}

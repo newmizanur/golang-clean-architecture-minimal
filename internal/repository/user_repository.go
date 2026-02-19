@@ -2,110 +2,73 @@ package repository
 
 import (
 	"context"
-	"golang-clean-architecture/internal/apperror"
-	m "golang-clean-architecture/internal/persistence/model"
+
+	"golang-clean-architecture/ent"
+	"golang-clean-architecture/ent/user"
 
 	"github.com/sirupsen/logrus"
-	"github.com/uptrace/bun"
 )
 
 type UserRepository struct {
-	DB  *bun.DB
 	Log *logrus.Logger
 }
 
-func NewUserRepository(db *bun.DB, log *logrus.Logger) *UserRepository {
-	return &UserRepository{
-		DB:  db,
-		Log: log,
-	}
+func NewUserRepository(log *logrus.Logger) *UserRepository {
+	return &UserRepository{Log: log}
 }
 
-func (r *UserRepository) dbConn(tx bun.IDB) bun.IDB {
-	if tx != nil {
-		return tx
-	}
-	return r.DB
-}
-
-func (r *UserRepository) CountById(ctx context.Context, tx bun.IDB, id string) (int64, error) {
-	count, err := r.dbConn(tx).NewSelect().
-		Model((*m.User)(nil)).
-		Where("id = ?", id).
-		Count(ctx)
+func (r *UserRepository) CountById(ctx context.Context, client *ent.Client, id string) (int64, error) {
+	count, err := client.User.Query().Where(user.ID(id)).Count(ctx)
 	return int64(count), err
 }
 
-func (r *UserRepository) FindById(ctx context.Context, tx bun.IDB, id string) (*m.User, error) {
-	user := new(m.User)
-	err := r.dbConn(tx).NewSelect().
-		Model(user).
-		Where("id = ?", id).
-		Limit(1).
-		Scan(ctx)
+func (r *UserRepository) FindById(ctx context.Context, client *ent.Client, id string) (*ent.User, error) {
+	u, err := client.User.Get(ctx, id)
 	if err != nil {
-		if apperror.IsNoRows(err) {
+		if ent.IsNotFound(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return user, nil
+	return u, nil
 }
 
-func (r *UserRepository) Create(ctx context.Context, tx bun.IDB, user *m.User) error {
-	_, err := r.dbConn(tx).NewInsert().Model(user).Exec(ctx)
+func (r *UserRepository) Create(ctx context.Context, client *ent.Client, u *ent.User) error {
+	_, err := client.User.Create().
+		SetID(u.ID).
+		SetName(u.Name).
+		SetPassword(u.Password).
+		SetCreatedAt(u.CreatedAt).
+		SetUpdatedAt(u.UpdatedAt).
+		Save(ctx)
 	if err != nil {
-		r.Log.WithError(err).WithField("user_id", user.ID).Error("Failed to create user")
+		r.Log.WithError(err).WithField("user_id", u.ID).Error("Failed to create user")
 		return err
 	}
-	r.Log.WithField("user_id", user.ID).Debug("User created successfully")
+	r.Log.WithField("user_id", u.ID).Debug("User created successfully")
 	return nil
 }
 
-func (r *UserRepository) Update(ctx context.Context, tx bun.IDB, user *m.User) error {
-	result, err := r.dbConn(tx).NewUpdate().
-		Model(user).
-		OmitZero().
-		WherePK().
-		Exec(ctx)
+func (r *UserRepository) Update(ctx context.Context, client *ent.Client, u *ent.User) error {
+	_, err := client.User.UpdateOneID(u.ID).
+		SetName(u.Name).
+		SetPassword(u.Password).
+		SetUpdatedAt(u.UpdatedAt).
+		Save(ctx)
 	if err != nil {
-		r.Log.WithError(err).WithField("user_id", user.ID).Error("Failed to update user")
+		r.Log.WithError(err).WithField("user_id", u.ID).Error("Failed to update user")
 		return err
 	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		r.Log.WithError(err).Error("Failed to get rows affected")
-		return err
-	}
-
-	if rowsAffected == 0 {
-		r.Log.WithField("user_id", user.ID).Warn("No user updated - user not found")
-		return nil
-	}
-
-	r.Log.WithField("user_id", user.ID).Debug("User updated successfully")
+	r.Log.WithField("user_id", u.ID).Debug("User updated successfully")
 	return nil
 }
 
-func (r *UserRepository) Delete(ctx context.Context, tx bun.IDB, user *m.User) error {
-	result, err := r.dbConn(tx).NewDelete().Model(user).WherePK().Exec(ctx)
+func (r *UserRepository) Delete(ctx context.Context, client *ent.Client, id string) error {
+	err := client.User.DeleteOneID(id).Exec(ctx)
 	if err != nil {
-		r.Log.WithError(err).WithField("user_id", user.ID).Error("Failed to delete user")
+		r.Log.WithError(err).WithField("user_id", id).Error("Failed to delete user")
 		return err
 	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		r.Log.WithError(err).Error("Failed to get rows affected")
-		return err
-	}
-
-	if rowsAffected == 0 {
-		r.Log.WithField("user_id", user.ID).Warn("No user deleted - user not found")
-		return nil
-	}
-
-	r.Log.WithField("user_id", user.ID).Debug("User deleted successfully")
+	r.Log.WithField("user_id", id).Debug("User deleted successfully")
 	return nil
 }

@@ -2,22 +2,21 @@ package usecase
 
 import (
 	"context"
+	"golang-clean-architecture/ent"
 	"golang-clean-architecture/internal/apperror"
 	"golang-clean-architecture/internal/auth"
 	"golang-clean-architecture/internal/dto"
 	"golang-clean-architecture/internal/dto/converter"
-	m "golang-clean-architecture/internal/persistence/model"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"github.com/uptrace/bun"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserUseCase struct {
-	DB             *bun.DB
+	Client         *ent.Client
 	Log            *logrus.Logger
 	Validate       *validator.Validate
 	UserRepository UserRepositoryPort
@@ -25,10 +24,10 @@ type UserUseCase struct {
 	JwtTTL         time.Duration
 }
 
-func NewUserUseCase(db *bun.DB, logger *logrus.Logger, validate *validator.Validate,
+func NewUserUseCase(client *ent.Client, logger *logrus.Logger, validate *validator.Validate,
 	userRepository UserRepositoryPort, jwtSecret string, jwtTTL time.Duration) *UserUseCase {
 	return &UserUseCase{
-		DB:             db,
+		Client:         client,
 		Log:            logger,
 		Validate:       validate,
 		UserRepository: userRepository,
@@ -38,7 +37,7 @@ func NewUserUseCase(db *bun.DB, logger *logrus.Logger, validate *validator.Valid
 }
 
 func (c *UserUseCase) Create(ctx context.Context, request *dto.RegisterUserRequest) (*dto.UserResponse, error) {
-	tx, err := c.DB.BeginTx(ctx, nil)
+	tx, err := c.Client.Tx(ctx)
 	if err != nil {
 		c.Log.WithError(err).Error("Failed to start transaction")
 		return nil, apperror.UserErrors.FailedToCreate
@@ -57,7 +56,7 @@ func (c *UserUseCase) Create(ctx context.Context, request *dto.RegisterUserReque
 	}
 
 	now := time.Now().UnixMilli()
-	user := &m.User{
+	user := &ent.User{
 		ID:        uuid.NewString(),
 		Password:  string(password),
 		Name:      request.Name,
@@ -65,7 +64,7 @@ func (c *UserUseCase) Create(ctx context.Context, request *dto.RegisterUserReque
 		UpdatedAt: now,
 	}
 
-	if err := c.UserRepository.Create(ctx, tx, user); err != nil {
+	if err := c.UserRepository.Create(ctx, tx.Client(), user); err != nil {
 		c.Log.WithError(err).Error("Failed to create user in database")
 		return nil, apperror.UserErrors.FailedToCreate
 	}
@@ -84,8 +83,7 @@ func (c *UserUseCase) Login(ctx context.Context, request *dto.LoginUserRequest) 
 		return nil, apperror.UserErrors.InvalidRequest
 	}
 
-	// Read-only operation, no transaction needed
-	user, err := c.UserRepository.FindById(ctx, nil, request.ID)
+	user, err := c.UserRepository.FindById(ctx, c.Client, request.ID)
 	if err != nil {
 		c.Log.WithError(err).WithField("user_id", request.ID).Warn("Failed to find user by id")
 		return nil, apperror.UserErrors.Unauthorized
@@ -115,8 +113,7 @@ func (c *UserUseCase) Current(ctx context.Context, request *dto.GetUserRequest) 
 		return nil, apperror.UserErrors.InvalidRequest
 	}
 
-	// Read-only operation, no transaction needed
-	user, err := c.UserRepository.FindById(ctx, nil, request.ID)
+	user, err := c.UserRepository.FindById(ctx, c.Client, request.ID)
 	if err != nil {
 		c.Log.WithError(err).WithField("user_id", request.ID).Error("Failed to find user by id")
 		return nil, apperror.UserErrors.NotFound
@@ -135,14 +132,12 @@ func (c *UserUseCase) Logout(ctx context.Context, request *dto.LogoutUserRequest
 		return false, apperror.UserErrors.InvalidRequest
 	}
 
-	// JWT logout is client-side (token removal)
-	// No server-side state to update
 	c.Log.WithField("user_id", request.ID).Info("User logged out")
 	return true, nil
 }
 
 func (c *UserUseCase) Update(ctx context.Context, request *dto.UpdateUserRequest) (*dto.UserResponse, error) {
-	tx, err := c.DB.BeginTx(ctx, nil)
+	tx, err := c.Client.Tx(ctx)
 	if err != nil {
 		c.Log.WithError(err).Error("Failed to start transaction")
 		return nil, apperror.UserErrors.FailedToUpdate
@@ -154,7 +149,7 @@ func (c *UserUseCase) Update(ctx context.Context, request *dto.UpdateUserRequest
 		return nil, apperror.UserErrors.InvalidRequest
 	}
 
-	user, err := c.UserRepository.FindById(ctx, tx, request.ID)
+	user, err := c.UserRepository.FindById(ctx, tx.Client(), request.ID)
 	if err != nil {
 		c.Log.WithError(err).WithField("user_id", request.ID).Error("Failed to find user by id")
 		return nil, apperror.UserErrors.NotFound
@@ -164,7 +159,6 @@ func (c *UserUseCase) Update(ctx context.Context, request *dto.UpdateUserRequest
 		return nil, apperror.UserErrors.NotFound
 	}
 
-	// Update fields - OmitZero in repository will handle partial updates
 	user.Name = request.Name
 
 	if request.Password != "" {
@@ -177,7 +171,7 @@ func (c *UserUseCase) Update(ctx context.Context, request *dto.UpdateUserRequest
 	}
 
 	user.UpdatedAt = time.Now().UnixMilli()
-	if err := c.UserRepository.Update(ctx, tx, user); err != nil {
+	if err := c.UserRepository.Update(ctx, tx.Client(), user); err != nil {
 		c.Log.WithError(err).Error("Failed to update user")
 		return nil, apperror.UserErrors.FailedToUpdate
 	}

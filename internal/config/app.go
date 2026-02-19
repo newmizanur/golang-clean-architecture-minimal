@@ -1,6 +1,7 @@
 package config
 
 import (
+	"golang-clean-architecture/ent"
 	"golang-clean-architecture/internal/delivery/http"
 	"golang-clean-architecture/internal/delivery/http/middleware"
 	"golang-clean-architecture/internal/delivery/http/route"
@@ -12,11 +13,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"github.com/uptrace/bun"
 )
 
 type BootstrapConfig struct {
-	DB       *bun.DB
+	Client   *ent.Client
 	App      *echo.Echo
 	Log      *logrus.Logger
 	Validate *validator.Validate
@@ -25,26 +25,26 @@ type BootstrapConfig struct {
 
 func Bootstrap(config *BootstrapConfig) {
 	// setup repositories
-	userRepository := repository.NewUserRepository(config.DB, config.Log)
-	contactRepository := repository.NewContactRepository(config.DB, config.Log)
-	addressRepository := repository.NewAddressRepository(config.DB, config.Log)
-	itemRepository := repository.NewItemRepository(config.DB, config.Log)
+	userRepository := repository.NewUserRepository(config.Log)
+	contactRepository := repository.NewContactRepository(config.Log)
+	addressRepository := repository.NewAddressRepository(config.Log)
+	itemRepository := repository.NewItemRepository(config.Log)
 
 	jwtSecret := config.Config.GetString("jwt.secret")
 	jwtTTLMinutes := config.Config.GetInt("jwt.ttl_minutes")
 
 	// setup use cases
 	userUseCase := usecase.NewUserUseCase(
-		config.DB,
+		config.Client,
 		config.Log,
 		config.Validate,
 		userRepository,
 		jwtSecret,
 		time.Duration(jwtTTLMinutes)*time.Minute,
 	)
-	contactUseCase := usecase.NewContactUseCase(config.DB, config.Log, config.Validate, contactRepository)
-	addressUseCase := usecase.NewAddressUseCase(config.DB, config.Log, config.Validate, contactRepository, addressRepository)
-	itemUseCase := usecase.NewItemUseCase(config.DB, config.Log, config.Validate, itemRepository)
+	contactUseCase := usecase.NewContactUseCase(config.Client, config.Log, config.Validate, contactRepository)
+	addressUseCase := usecase.NewAddressUseCase(config.Client, config.Log, config.Validate, contactRepository, addressRepository)
+	itemUseCase := usecase.NewItemUseCase(config.Client, config.Log, config.Validate, itemRepository)
 
 	// setup controller
 	userController := http.NewUserController(userUseCase, config.Log)

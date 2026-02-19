@@ -1,11 +1,11 @@
 package converter
 
 import (
+	"golang-clean-architecture/ent"
 	"golang-clean-architecture/internal/dto"
-	dbmodel "golang-clean-architecture/internal/persistence/model"
 )
 
-func UserToResponse(user *dbmodel.User) *dto.UserResponse {
+func UserToResponse(user *ent.User) *dto.UserResponse {
 	return &dto.UserResponse{
 		ID:        user.ID,
 		Name:      user.Name,

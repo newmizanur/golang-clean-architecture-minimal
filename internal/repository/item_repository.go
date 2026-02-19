@@ -3,111 +3,76 @@ package repository
 import (
 	"context"
 
-	"golang-clean-architecture/internal/apperror"
+	"golang-clean-architecture/ent"
+	"golang-clean-architecture/ent/item"
 	"golang-clean-architecture/internal/dto"
-	m "golang-clean-architecture/internal/persistence/model"
 
 	"github.com/sirupsen/logrus"
-	"github.com/uptrace/bun"
 )
 
 type ItemRepository struct {
-	DB  *bun.DB
 	Log *logrus.Logger
 }
 
-func NewItemRepository(db *bun.DB, log *logrus.Logger) *ItemRepository {
-	return &ItemRepository{
-		DB:  db,
-		Log: log,
-	}
+func NewItemRepository(log *logrus.Logger) *ItemRepository {
+	return &ItemRepository{Log: log}
 }
 
-func (r *ItemRepository) dbConn(tx bun.IDB) bun.IDB {
-	if tx != nil {
-		return tx
-	}
-	return r.DB
-}
-
-func (r *ItemRepository) Create(ctx context.Context, tx bun.IDB, item *m.Item) (int64, error) {
-	_, err := r.dbConn(tx).NewInsert().Model(item).Returning("id").Exec(ctx)
+func (r *ItemRepository) Create(ctx context.Context, client *ent.Client, i *ent.Item) (*ent.Item, error) {
+	created, err := client.Item.Create().
+		SetName(i.Name).
+		SetSku(i.Sku).
+		SetCurrency(i.Currency).
+		SetStock(i.Stock).
+		SetCreatedAt(i.CreatedAt).
+		SetUpdatedAt(i.UpdatedAt).
+		Save(ctx)
 	if err != nil {
 		r.Log.WithError(err).Error("Failed to create item")
-		return 0, err
+		return nil, err
 	}
-	r.Log.WithField("item_id", item.ID).Debug("Item created successfully")
-	return item.ID, nil
+	r.Log.WithField("item_id", created.ID).Debug("Item created successfully")
+	return created, nil
 }
 
-func (r *ItemRepository) Update(ctx context.Context, tx bun.IDB, item *m.Item) error {
-	result, err := r.dbConn(tx).NewUpdate().
-		Model(item).
-		OmitZero().
-		WherePK().
-		Exec(ctx)
+func (r *ItemRepository) FindById(ctx context.Context, client *ent.Client, id int) (*ent.Item, error) {
+	i, err := client.Item.Get(ctx, id)
 	if err != nil {
-		r.Log.WithError(err).WithField("item_id", item.ID).Error("Failed to update item")
-		return err
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		r.Log.WithError(err).Error("Failed to get rows affected")
-		return err
-	}
-
-	if rowsAffected == 0 {
-		r.Log.WithField("item_id", item.ID).Warn("No item updated - item not found")
-		return nil
-	}
-
-	r.Log.WithField("item_id", item.ID).Debug("Item updated successfully")
-	return nil
-}
-
-func (r *ItemRepository) FindById(ctx context.Context, tx bun.IDB, id int64) (*m.Item, error) {
-	item := new(m.Item)
-	err := r.dbConn(tx).NewSelect().
-		Model(item).
-		Where("id = ?", id).
-		Limit(1).
-		Scan(ctx)
-	if err != nil {
-		if apperror.IsNoRows(err) {
+		if ent.IsNotFound(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return item, nil
+	return i, nil
 }
 
-func (r *ItemRepository) Delete(ctx context.Context, tx bun.IDB, item *m.Item) error {
-	result, err := r.dbConn(tx).NewDelete().Model(item).WherePK().Exec(ctx)
+func (r *ItemRepository) Update(ctx context.Context, client *ent.Client, i *ent.Item) error {
+	_, err := client.Item.UpdateOneID(i.ID).
+		SetName(i.Name).
+		SetSku(i.Sku).
+		SetCurrency(i.Currency).
+		SetStock(i.Stock).
+		SetUpdatedAt(i.UpdatedAt).
+		Save(ctx)
 	if err != nil {
-		r.Log.WithError(err).WithField("item_id", item.ID).Error("Failed to delete item")
+		r.Log.WithError(err).WithField("item_id", i.ID).Error("Failed to update item")
 		return err
 	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		r.Log.WithError(err).Error("Failed to get rows affected")
-		return err
-	}
-
-	if rowsAffected == 0 {
-		r.Log.WithField("item_id", item.ID).Warn("No item deleted - item not found")
-		return nil
-	}
-
-	r.Log.WithField("item_id", item.ID).Debug("Item deleted successfully")
+	r.Log.WithField("item_id", i.ID).Debug("Item updated successfully")
 	return nil
 }
 
-func (r *ItemRepository) Search(ctx context.Context, tx bun.IDB, search *dto.SearchItemRequest) ([]m.Item, int64, error) {
-	var items []m.Item
+func (r *ItemRepository) Delete(ctx context.Context, client *ent.Client, id int) error {
+	err := client.Item.DeleteOneID(id).Exec(ctx)
+	if err != nil {
+		r.Log.WithError(err).WithField("item_id", id).Error("Failed to delete item")
+		return err
+	}
+	r.Log.WithField("item_id", id).Debug("Item deleted successfully")
+	return nil
+}
 
-	// Validate pagination parameters
+func (r *ItemRepository) Search(ctx context.Context, client *ent.Client, search *dto.SearchItemRequest) ([]*ent.Item, int64, error) {
 	if search.Page < 1 {
 		search.Page = 1
 	}
@@ -115,66 +80,65 @@ func (r *ItemRepository) Search(ctx context.Context, tx bun.IDB, search *dto.Sea
 		search.Size = 10
 	}
 
-	offset := (search.Page - 1) * search.Size
+	query := client.Item.Query()
 
-	query := r.dbConn(tx).NewSelect().Model(&items)
-
-	if name := search.Name; name != "" {
-		pattern := "%" + name + "%"
-		query = query.Where("name ILIKE ?", pattern)
+	if search.Name != "" {
+		query = query.Where(item.NameContainsFold(search.Name))
+	}
+	if search.SKU != "" {
+		query = query.Where(item.SkuContainsFold(search.SKU))
 	}
 
-	if sku := search.SKU; sku != "" {
-		pattern := "%" + sku + "%"
-		query = query.Where("sku ILIKE ?", pattern)
+	if orderFunc := r.sortItem(search.Sort); orderFunc != nil {
+		query = query.Order(orderFunc)
 	}
 
-	if orderExpr := r.sortItem(search.Sort); orderExpr != "" {
-		query = query.OrderExpr(orderExpr)
-	}
-
-	count, err := query.Count(ctx)
+	total, err := query.Count(ctx)
 	if err != nil {
 		r.Log.WithError(err).Error("Failed to count items")
 		return nil, 0, err
 	}
 
-	err = query.Limit(search.Size).Offset(offset).Scan(ctx)
+	offset := (search.Page - 1) * search.Size
+	items, err := query.Limit(search.Size).Offset(offset).All(ctx)
 	if err != nil {
 		r.Log.WithError(err).Error("Failed to search items")
 		return nil, 0, err
 	}
 
-	return items, int64(count), nil
+	return items, int64(total), nil
 }
 
 var sortableItemCols = map[string]string{
-	"name":      "name",
-	"sku":       "sku",
-	"stock":     "stock",
-	"createdAt": "created_at",
-	"updatedAt": "updated_at",
+	"name":      item.FieldName,
+	"sku":       item.FieldSku,
+	"stock":     item.FieldStock,
+	"createdAt": item.FieldCreatedAt,
+	"updatedAt": item.FieldUpdatedAt,
 }
 
-func (r *ItemRepository) sortItem(sort string) string {
+func (r *ItemRepository) sortItem(sort string) item.OrderOption {
 	if sort == "" {
-		return ""
+		return nil
 	}
 
-	order := "ASC"
+	desc := false
 	if sort[0] == '-' {
-		order = "DESC"
+		desc = true
 		sort = sort[1:]
 	}
 
 	if sort == "" {
-		return ""
+		return nil
 	}
 
 	column, ok := sortableItemCols[sort]
 	if !ok {
-		return ""
+		return nil
 	}
 
-	return column + " " + order
+	if desc {
+		return item.OrderOption(ent.Desc(column))
+	}
+	return item.OrderOption(ent.Asc(column))
 }

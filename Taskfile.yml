@@ -22,9 +22,23 @@ tasks:
       - docker run --name postgres -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=db -d postgres:16
 
   tools:install:
-    desc: Install goose CLI tool
+    desc: Install goose and ent CLI tools
     cmds:
       - go install github.com/pressly/goose/v3/cmd/goose@latest
+      - go install entgo.io/ent/cmd/ent@latest
+
+  ent:generate:
+    desc: Generate ent code from schemas
+    cmds:
+      - go generate ./ent
+
+  ent:new:
+    desc: Create a new ent schema (NAME required)
+    cmds:
+      - go run -mod=mod entgo.io/ent/cmd/ent new {{.CLI_ARGS}}
+    preconditions:
+      - sh: test -n "{{.CLI_ARGS}}"
+        msg: "NAME is required. Example: task ent:new -- Product"
 
   goose:up:
     desc: Run Goose migrations

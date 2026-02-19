@@ -1,10 +1,5 @@
 package apperror
 
-import (
-	"database/sql"
-	"errors"
-)
-
 type AppError struct {
 	Code    int
 	Status  int
@@ -21,8 +16,4 @@ func NewAppError(code int, status int, message string) *AppError {
 		Status:  status,
 		Message: message,
 	}
-}
-
-func IsNoRows(err error) bool {
-	return errors.Is(err, sql.ErrNoRows)
 }

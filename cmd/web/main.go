@@ -8,12 +8,13 @@ import (
 func main() {
 	viperConfig := config.NewViper()
 	log := config.NewLogger(viperConfig)
-	db := config.NewDatabase(viperConfig, log)
+	client := config.NewDatabase(viperConfig, log)
+	defer client.Close()
 	validate := config.NewValidator(viperConfig)
 	app := config.NewEcho(viperConfig)
 
 	config.Bootstrap(&config.BootstrapConfig{
-		DB:       db,
+		Client:   client,
 		App:      app,
 		Log:      log,
 		Validate: validate,
