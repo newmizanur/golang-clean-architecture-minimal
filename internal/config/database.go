@@ -2,8 +2,6 @@ package config
 
 import (
 	"database/sql"
-	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -14,16 +12,10 @@ import (
 )
 
 func NewDatabase(viper *viper.Viper, log *logrus.Logger) *bun.DB {
-	username := viper.GetString("database.username")
-	password := url.QueryEscape(viper.GetString("database.password"))
-	host := viper.GetString("database.host")
-	port := viper.GetInt("database.port")
-	database := viper.GetString("database.name")
+	dsn := viper.GetString("database.dsn")
 	idleConnection := viper.GetInt("database.pool.idle")
 	maxConnection := viper.GetInt("database.pool.max")
 	maxLifeTimeConnection := viper.GetInt("database.pool.lifetime")
-
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", username, password, host, port, database)
 
 	sqldb, err := sql.Open("pg", dsn)
 	if err != nil {
